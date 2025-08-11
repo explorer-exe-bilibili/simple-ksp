@@ -3,232 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple KSP - 网页版坎巴拉太空计划</title>
+    <title>Kerbal Space Program Web</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/ui.css">
 </head>
 <body>
-    <div id="loading-screen">
-        <div class="loading-content">
-            <h1>Simple KSP</h1>
-            <div class="loading-bar">
-                <div class="loading-progress"></div>
-            </div>
-            <p>加载中...</p>
-        </div>
+    <div class="starfield">
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
     </div>
-
-    <div id="main-menu" class="screen active">
-        <div class="menu-background"></div>
-        <div class="menu-content">
-            <h1 class="game-title">Simple KSP</h1>
-            <div class="menu-buttons">
-                <button class="menu-btn" data-screen="vehicle-assembly">载具装配厂</button>
-                <button class="menu-btn" data-screen="launch-pad">发射台</button>
-                <button class="menu-btn" data-screen="tracking-station">跟踪站</button>
-                <button class="menu-btn" data-screen="mission-control">任务控制</button>
-                <button class="menu-btn" data-screen="settings">设置</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 载具装配厂 -->
-    <div id="vehicle-assembly" class="screen">
-        <div class="assembly-header">
-            <h2>载具装配厂 (VAB)</h2>
-            <div class="assembly-controls">
-                <button id="save-vehicle">保存载具</button>
-                <button id="load-vehicle">加载载具</button>
-                <button id="launch-vehicle">发射</button>
-                <button class="back-btn" data-screen="main-menu">返回</button>
-            </div>
-        </div>
+    
+    <div class="container">
+        <header class="main-header">
+            <h1 class="game-title">
+                <span class="title-text">坎巴拉太空计划</span>
+                <span class="title-subtitle">Kerbal Space Program Web</span>
+            </h1>
+        </header>
         
-        <div class="assembly-workspace">
-            <div class="parts-panel">
-                <h3>组件库</h3>
-                <div class="parts-categories">
-                    <div class="category active" data-category="command">指令</div>
-                    <div class="category" data-category="fuel">燃料</div>
-                    <div class="category" data-category="engine">引擎</div>
-                    <div class="category" data-category="structure">结构</div>
-                    <div class="category" data-category="aero">气动</div>
-                </div>
-                <div id="parts-list" class="parts-list"></div>
-            </div>
-            
-            <div class="assembly-area">
-                <canvas id="assembly-canvas" width="800" height="600"></canvas>
-                <div class="assembly-info">
-                    <div class="vehicle-stats">
-                        <div class="stat">
-                            <label>总质量:</label>
-                            <span id="total-mass">0 kg</span>
-                        </div>
-                        <div class="stat">
-                            <label>Delta-V:</label>
-                            <span id="total-deltav">0 m/s</span>
-                        </div>
-                        <div class="stat">
-                            <label>推重比:</label>
-                            <span id="twr">0</span>
-                        </div>
+        <main class="main-menu">
+            <div class="menu-container">
+                <div class="menu-item rocket-builder">
+                    <div class="menu-icon">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <!-- 火箭图标 -->
+                            <path d="M50 10 L55 30 L60 45 L55 60 L50 70 L45 60 L40 45 L45 30 Z" fill="#fff"/>
+                            <circle cx="50" cy="25" r="3" fill="#ff6b35"/>
+                            <path d="M40 45 L35 50 L40 55 Z" fill="#fff"/>
+                            <path d="M60 45 L65 50 L60 55 Z" fill="#fff"/>
+                            <path d="M45 70 L50 80 L55 70" fill="#ff6b35"/>
+                        </svg>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 发射台/飞行场景 -->
-    <div id="launch-pad" class="screen">
-        <div class="flight-hud">
-            <div class="top-hud">
-                <div class="altitude-speed">
-                    <div class="hud-item">
-                        <label>高度:</label>
-                        <span id="altitude">0 m</span>
-                    </div>
-                    <div class="hud-item">
-                        <label>速度:</label>
-                        <span id="velocity">0 m/s</span>
-                    </div>
-                    <div class="hud-item">
-                        <label>加速度:</label>
-                        <span id="acceleration">0 m/s²</span>
-                    </div>
-                </div>
-                <div class="mission-time">
-                    <label>任务时间:</label>
-                    <span id="mission-time">T+ 00:00:00</span>
-                </div>
-            </div>
-            
-            <div class="flight-controls">
-                <div class="throttle-control">
-                    <label>推力</label>
-                    <input type="range" id="throttle" min="0" max="100" value="0" orient="vertical">
-                    <span id="throttle-value">0%</span>
+                    <h2>载具装配大楼</h2>
+                    <p>设计和建造你的火箭</p>
+                    <button class="menu-button" onclick="handleMenuClick('rocket-builder')">
+                        <span>进入装配</span>
+                    </button>
                 </div>
                 
-                <div class="staging-controls">
-                    <div class="staging-stack" id="staging-stack"></div>
-                    <button id="stage-button" class="stage-btn">分离 (空格)</button>
-                </div>
-                
-                <div class="action-groups">
-                    <button class="action-btn" data-action="sas">SAS</button>
-                    <button class="action-btn" data-action="rcs">RCS</button>
-                    <button class="action-btn" data-action="gear">起落架</button>
-                    <button class="action-btn" data-action="light">灯光</button>
-                    <button class="action-btn" data-action="brake">刹车</button>
+                <div class="menu-item tracking-station">
+                    <div class="menu-icon">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <!-- 追踪站图标 -->
+                            <circle cx="50" cy="50" r="40" fill="none" stroke="#fff" stroke-width="2"/>
+                            <circle cx="50" cy="50" r="25" fill="none" stroke="#fff" stroke-width="2"/>
+                            <circle cx="50" cy="50" r="10" fill="none" stroke="#fff" stroke-width="2"/>
+                            <circle cx="50" cy="50" r="3" fill="#4ade80"/>
+                            <path d="M20 30 L30 20 M70 30 L80 20 M20 70 L30 80 M70 70 L80 80" stroke="#fff" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h2>追踪站</h2>
+                    <p>监控你的任务和载具</p>
+                    <button class="menu-button" onclick="handleMenuClick('tracking-station')">
+                        <span>进入追踪</span>
+                    </button>
                 </div>
             </div>
-        </div>
+        </main>
         
-        <canvas id="flight-canvas" width="1200" height="800"></canvas>
-        
-        <div class="flight-menu">
-            <button id="pause-btn">暂停</button>
-            <button id="physics-warp">物理时间加速</button>
-            <button class="back-btn" data-screen="main-menu">退出飞行</button>
-        </div>
+        <footer class="game-footer">
+            <div class="planet-system">
+                <div class="planet kerbin"></div>
+                <div class="planet mun"></div>
+                <div class="planet minmus"></div>
+            </div>
+        </footer>
     </div>
-
-    <!-- 跟踪站 -->
-    <div id="tracking-station" class="screen">
-        <div class="tracking-header">
-            <h2>跟踪站</h2>
-            <button class="back-btn" data-screen="main-menu">返回</button>
-        </div>
-        
-        <div class="tracking-workspace">
-            <div class="solar-system-view">
-                <canvas id="solar-system-canvas" width="1000" height="700"></canvas>
-            </div>
-            
-            <div class="vessel-list">
-                <h3>载具列表</h3>
-                <div id="vessels-list" class="vessels"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 任务控制 -->
-    <div id="mission-control" class="screen">
-        <div class="mission-header">
-            <h2>任务控制中心</h2>
-            <button class="back-btn" data-screen="main-menu">返回</button>
-        </div>
-        
-        <div class="mission-workspace">
-            <div class="available-missions">
-                <h3>可用任务</h3>
-                <div id="missions-list" class="missions"></div>
-            </div>
-            
-            <div class="active-missions">
-                <h3>进行中的任务</h3>
-                <div id="active-missions-list" class="missions"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 设置 -->
-    <div id="settings" class="screen">
-        <div class="settings-header">
-            <h2>设置</h2>
-            <button class="back-btn" data-screen="main-menu">返回</button>
-        </div>
-        
-        <div class="settings-content">
-            <div class="setting-group">
-                <h3>游戏设置</h3>
-                <div class="setting-item">
-                    <label>物理精度</label>
-                    <select id="physics-quality">
-                        <option value="low">低</option>
-                        <option value="medium" selected>中</option>
-                        <option value="high">高</option>
-                    </select>
-                </div>
-                <div class="setting-item">
-                    <label>音效音量</label>
-                    <input type="range" id="sfx-volume" min="0" max="100" value="50">
-                </div>
-                <div class="setting-item">
-                    <label>背景音乐音量</label>
-                    <input type="range" id="music-volume" min="0" max="100" value="30">
-                </div>
-            </div>
-            
-            <div class="setting-group">
-                <h3>控制设置</h3>
-                <div class="setting-item">
-                    <label>鼠标灵敏度</label>
-                    <input type="range" id="mouse-sensitivity" min="0.1" max="3.0" step="0.1" value="1.0">
-                </div>
-                <div class="setting-item">
-                    <label>反转Y轴</label>
-                    <input type="checkbox" id="invert-y">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- JavaScript文件 -->
-    <script src="js/core/GameEngine.js"></script>
-    <script src="js/core/Physics.js"></script>
-    <script src="js/core/Renderer.js"></script>
-    <script src="js/core/Input.js"></script>
-    
-    <script src="js/game/CelestialBody.js"></script>
-    <script src="js/game/Part.js"></script>
-    <script src="js/game/Vehicle.js"></script>
-    <script src="js/game/Mission.js"></script>
-    
-    <script src="js/ui/UIManager.js"></script>
-    <script src="js/ui/AssemblyUI.js"></script>
-    <script src="js/ui/FlightUI.js"></script>
     
     <script src="js/main.js"></script>
 </body>
