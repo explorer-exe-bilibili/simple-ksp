@@ -1,0 +1,250 @@
+/* 基础样式 */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+    color: #ffffff;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* 加载屏幕 */
+#loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.loading-content h1 {
+    font-size: 3em;
+    margin-bottom: 30px;
+    background: linear-gradient(45deg, #00d4ff, #0099cc, #ffffff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.loading-bar {
+    width: 300px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    margin: 20px auto;
+    overflow: hidden;
+}
+
+.loading-progress {
+    height: 100%;
+    background: linear-gradient(90deg, #00d4ff, #0099cc);
+    border-radius: 3px;
+    animation: loading 2s ease-in-out infinite;
+}
+
+@keyframes loading {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    100% { width: 100%; }
+}
+
+/* 屏幕管理 */
+.screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: none;
+    flex-direction: column;
+}
+
+.screen.active {
+    display: flex;
+}
+
+/* 主菜单 */
+#main-menu {
+    justify-content: center;
+    align-items: center;
+}
+
+.menu-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><radialGradient id="stars" cx="50%" cy="50%" r="50%"><stop offset="0%" style="stop-color:%23ffffff;stop-opacity:0.8"/><stop offset="100%" style="stop-color:%23ffffff;stop-opacity:0"/></radialGradient></defs><rect width="100%" height="100%" fill="%23000014"/><circle cx="100" cy="100" r="1" fill="url(%23stars)"/><circle cx="200" cy="150" r="0.5" fill="url(%23stars)"/><circle cx="300" cy="80" r="0.8" fill="url(%23stars)"/><circle cx="450" cy="200" r="0.6" fill="url(%23stars)"/><circle cx="600" cy="120" r="0.7" fill="url(%23stars)"/><circle cx="750" cy="180" r="0.5" fill="url(%23stars)"/><circle cx="850" cy="90" r="1.2" fill="url(%23stars)"/></svg>');
+    animation: starfield 60s linear infinite;
+}
+
+@keyframes starfield {
+    0% { transform: rotate(0deg) scale(1); }
+    100% { transform: rotate(360deg) scale(1.1); }
+}
+
+.menu-content {
+    z-index: 1;
+    text-align: center;
+}
+
+.game-title {
+    font-size: 4em;
+    margin-bottom: 50px;
+    text-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+    background: linear-gradient(45deg, #00d4ff, #ffffff, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% 200%;
+    animation: titleGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes titleGlow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+
+.menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
+
+.menu-btn, .back-btn {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 153, 204, 0.3));
+    border: 2px solid rgba(0, 212, 255, 0.5);
+    color: #ffffff;
+    padding: 15px 40px;
+    font-size: 1.2em;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 250px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.menu-btn:hover, .back-btn:hover {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.4), rgba(0, 153, 204, 0.5));
+    border-color: rgba(0, 212, 255, 0.8);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+/* 通用头部样式 */
+.assembly-header, .tracking-header, .mission-header, .settings-header {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(26, 26, 46, 0.8));
+    padding: 20px;
+    border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.assembly-header h2, .tracking-header h2, .mission-header h2, .settings-header h2 {
+    font-size: 1.8em;
+    color: #00d4ff;
+}
+
+.assembly-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.assembly-controls button {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 153, 204, 0.3));
+    border: 1px solid rgba(0, 212, 255, 0.5);
+    color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.assembly-controls button:hover {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.4), rgba(0, 153, 204, 0.5));
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+}
+
+/* Canvas样式 */
+canvas {
+    border: 2px solid rgba(0, 212, 255, 0.3);
+    border-radius: 8px;
+    background: radial-gradient(circle at center, #000814 0%, #001122 100%);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.5), rgba(0, 153, 204, 0.7));
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.7), rgba(0, 153, 204, 0.9));
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .game-title {
+        font-size: 2.5em;
+    }
+    
+    .menu-btn, .back-btn {
+        min-width: 200px;
+        padding: 12px 30px;
+        font-size: 1em;
+    }
+    
+    canvas {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+/* 动画效果 */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(0); }
+}

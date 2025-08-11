@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple KSP - 功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #007acc;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #005a9e;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+        }
+        .error {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #F44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple KSP - 功能测试页面</h1>
+    
+    <div class="test-section">
+        <h2>基础测试</h2>
+        <button class="test-button" onclick="testBasicFunctionality()">测试基础功能</button>
+        <button class="test-button" onclick="testGameEngine()">测试游戏引擎</button>
+        <button class="test-button" onclick="testUI()">测试UI系统</button>
+        <div id="basic-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>游戏测试</h2>
+        <button class="test-button" onclick="testVehicleCreation()">测试载具创建</button>
+        <button class="test-button" onclick="testPhysics()">测试物理系统</button>
+        <button class="test-button" onclick="testMissions()">测试任务系统</button>
+        <div id="game-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>快捷链接</h2>
+        <button class="test-button" onclick="window.open('/', '_blank')">打开游戏主页</button>
+        <button class="test-button" onclick="window.open('/?debug=1', '_blank')">打开调试模式</button>
+        <button class="test-button" onclick="showGameInfo()">显示游戏信息</button>
+        <div id="info-results"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, message, isSuccess = true) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = 'test-result ' + (isSuccess ? 'success' : 'error');
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+
+        function testBasicFunctionality() {
+            const container = document.getElementById('basic-results');
+            container.innerHTML = '';
+            
+            // 测试基本JavaScript功能
+            try {
+                const testObj = { test: true };
+                addResult('basic-results', '✓ JavaScript基础功能正常');
+                
+                // 测试本地存储
+                localStorage.setItem('test', 'value');
+                const stored = localStorage.getItem('test');
+                if (stored === 'value') {
+                    addResult('basic-results', '✓ LocalStorage功能正常');
+                } else {
+                    addResult('basic-results', '✗ LocalStorage功能异常', false);
+                }
+                localStorage.removeItem('test');
+                
+                // 测试Canvas支持
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    addResult('basic-results', '✓ Canvas 2D支持正常');
+                } else {
+                    addResult('basic-results', '✗ Canvas 2D支持异常', false);
+                }
+                
+            } catch (error) {
+                addResult('basic-results', '✗ 基础功能测试失败: ' + error.message, false);
+            }
+        }
+
+        function testGameEngine() {
+            const container = document.getElementById('basic-results');
+            
+            try {
+                // 检查游戏类是否存在
+                const classes = [
+                    'GameEngine', 'PhysicsEngine', 'RenderEngine', 'InputManager', 
+                    'UIManager', 'Vehicle', 'Part', 'CelestialBody', 'Mission'
+                ];
+                
+                let allClassesFound = true;
+                classes.forEach(className => {
+                    if (typeof window[className] !== 'undefined') {
+                        addResult('basic-results', `✓ ${className}类已加载`);
+                    } else {
+                        addResult('basic-results', `✗ ${className}类未找到`, false);
+                        allClassesFound = false;
+                    }
+                });
+                
+                if (allClassesFound) {
+                    addResult('basic-results', '✓ 所有核心类已成功加载');
+                }
+                
+            } catch (error) {
+                addResult('basic-results', '✗ 游戏引擎测试失败: ' + error.message, false);
+            }
+        }
+
+        function testUI() {
+            const container = document.getElementById('basic-results');
+            
+            try {
+                // 检查页面元素
+                const mainMenu = document.getElementById('main-menu');
+                if (mainMenu) {
+                    addResult('basic-results', '✓ 主菜单元素存在');
+                } else {
+                    addResult('basic-results', '✗ 主菜单元素不存在', false);
+                }
+                
+                // 检查其他关键元素
+                const screens = ['vehicle-assembly', 'flight', 'tracking-station'];
+                screens.forEach(screenId => {
+                    const screen = document.getElementById(screenId);
+                    if (screen) {
+                        addResult('basic-results', `✓ ${screenId}界面存在`);
+                    } else {
+                        addResult('basic-results', `✗ ${screenId}界面不存在`, false);
+                    }
+                });
+                
+            } catch (error) {
+                addResult('basic-results', '✗ UI测试失败: ' + error.message, false);
+            }
+        }
+
+        function testVehicleCreation() {
+            const container = document.getElementById('game-results');
+            container.innerHTML = '';
+            
+            try {
+                // 测试Part类
+                if (typeof Part !== 'undefined') {
+                    const part = new Part('mk1-command-pod', 0, 0);
+                    addResult('game-results', '✓ Part对象创建成功');
+                    addResult('game-results', `✓ 部件类型: ${part.type}, 质量: ${part.mass}t`);
+                } else {
+                    addResult('game-results', '✗ Part类未找到', false);
+                }
+                
+                // 测试Vehicle类
+                if (typeof Vehicle !== 'undefined') {
+                    const vehicle = new Vehicle();
+                    addResult('game-results', '✓ Vehicle对象创建成功');
+                    addResult('game-results', `✓ 载具ID: ${vehicle.id}`);
+                } else {
+                    addResult('game-results', '✗ Vehicle类未找到', false);
+                }
+                
+            } catch (error) {
+                addResult('game-results', '✗ 载具创建测试失败: ' + error.message, false);
+            }
+        }
+
+        function testPhysics() {
+            const container = document.getElementById('game-results');
+            
+            try {
+                if (typeof PhysicsEngine !== 'undefined') {
+                    const physics = new PhysicsEngine();
+                    addResult('game-results', '✓ PhysicsEngine创建成功');
+                    
+                    // 测试重力计算
+                    const gravity = physics.calculateGravity(0, 600000); // Kerbin表面
+                    addResult('game-results', `✓ 重力计算: ${gravity.toFixed(2)} m/s²`);
+                } else {
+                    addResult('game-results', '✗ PhysicsEngine类未找到', false);
+                }
+                
+            } catch (error) {
+                addResult('game-results', '✗ 物理系统测试失败: ' + error.message, false);
+            }
+        }
+
+        function testMissions() {
+            const container = document.getElementById('game-results');
+            
+            try {
+                if (typeof MissionManager !== 'undefined') {
+                    const missionManager = new MissionManager();
+                    missionManager.initialize();
+                    addResult('game-results', '✓ MissionManager创建成功');
+                    
+                    const missions = missionManager.getAvailableMissions();
+                    addResult('game-results', `✓ 可用任务数量: ${missions.length}`);
+                } else {
+                    addResult('game-results', '✗ MissionManager类未找到', false);
+                }
+                
+            } catch (error) {
+                addResult('game-results', '✗ 任务系统测试失败: ' + error.message, false);
+            }
+        }
+
+        function showGameInfo() {
+            const container = document.getElementById('info-results');
+            container.innerHTML = '';
+            
+            addResult('info-results', '<strong>游戏信息:</strong>');
+            addResult('info-results', '名称: Simple KSP - 网页版坎巴拉太空计划');
+            addResult('info-results', '版本: 1.0.0 Alpha');
+            addResult('info-results', '开发状态: 核心功能完成，UI完善中');
+            addResult('info-results', '技术栈: HTML5, CSS3, JavaScript (ES6+), Canvas API');
+            addResult('info-results', '<br><strong>当前功能:</strong>');
+            addResult('info-results', '• 完整的游戏引擎架构');
+            addResult('info-results', '• 物理引擎（重力、大气阻力、轨道力学）');
+            addResult('info-results', '• 载具装配系统');
+            addResult('info-results', '• 飞行控制系统');
+            addResult('info-results', '• 天体系统（Kerbin, Mun, Minmus等）');
+            addResult('info-results', '• 任务系统');
+            addResult('info-results', '• UI界面管理');
+            addResult('info-results', '<br><strong>控制说明:</strong>');
+            addResult('info-results', '• WASD: 姿态控制');
+            addResult('info-results', '• Space: 分离/激活下一级');
+            addResult('info-results', '• X: 关闭推力');
+            addResult('info-results', '• Z: 全推力');
+            addResult('info-results', '• M: 切换地图视图');
+            addResult('info-results', '• Esc: 暂停菜单');
+        }
+
+        // 页面加载时自动运行基础测试
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                testBasicFunctionality();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
