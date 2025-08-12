@@ -38,6 +38,9 @@ class RocketBuilder {
             <div class="canvas-grid"></div>
             <div class="rocket-assembly" id="rocketAssembly"></div>
         `;
+        
+        // 初始化画布变换
+        this.updateCanvasTransform();
     }
 
     // 设置事件监听器
@@ -123,9 +126,19 @@ class RocketBuilder {
         if (!this.draggedPart) return;
 
         // 计算放置位置
-        const rect = this.canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left - this.canvasOffset.x) / this.canvasZoom;
-        const y = (e.clientY - rect.top - this.canvasOffset.y) / this.canvasZoom;
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - canvasRect.left;
+        const mouseY = e.clientY - canvasRect.top;
+        
+        // 考虑画布的变换：translate(offset) scale(zoom)
+        let x = (mouseX - this.canvasOffset.x) / this.canvasZoom;
+        let y = (mouseY - this.canvasOffset.y) / this.canvasZoom;
+        
+        // 让部件中心对准鼠标位置
+        const partWidth = this.draggedPart.dimensions.width * 40;
+        const partHeight = this.draggedPart.dimensions.height * 40;
+        x -= partWidth / 2;
+        y -= partHeight / 2;
         
         // 网格吸附
         let position = { x, y };
@@ -191,12 +204,17 @@ class RocketBuilder {
             hasMoved = false;
             partElement.classList.add('dragging');
             
-            // 计算鼠标相对于部件的偏移
-            const rect = partElement.getBoundingClientRect();
+            // 计算鼠标相对于画布的位置
             const canvasRect = this.canvas.getBoundingClientRect();
+            const mouseCanvasX = e.clientX - canvasRect.left;
+            const mouseCanvasY = e.clientY - canvasRect.top;
             
-            dragOffset.x = e.clientX - rect.left;
-            dragOffset.y = e.clientY - rect.top;
+            // 计算拖拽偏移：鼠标在画布坐标系中的位置 - 部件在画布坐标系中的位置
+            const partCanvasX = (assemblyPart.position.x * this.canvasZoom) + this.canvasOffset.x;
+            const partCanvasY = (assemblyPart.position.y * this.canvasZoom) + this.canvasOffset.y;
+            
+            dragOffset.x = mouseCanvasX - partCanvasX;
+            dragOffset.y = mouseCanvasY - partCanvasY;
             
             startPosition.x = assemblyPart.position.x;
             startPosition.y = assemblyPart.position.y;
@@ -211,8 +229,15 @@ class RocketBuilder {
 
             hasMoved = true;
             const canvasRect = this.canvas.getBoundingClientRect();
-            let newX = (e.clientX - canvasRect.left - dragOffset.x) / this.canvasZoom;
-            let newY = (e.clientY - canvasRect.top - dragOffset.y) / this.canvasZoom;
+            
+            // 计算鼠标相对于画布的位置
+            const mouseX = e.clientX - canvasRect.left;
+            const mouseY = e.clientY - canvasRect.top;
+            
+            // 考虑画布的变换：translate(offset) scale(zoom)
+            // 先减去偏移，再除以缩放，最后减去拖拽偏移
+            let newX = (mouseX - this.canvasOffset.x) / this.canvasZoom - dragOffset.x / this.canvasZoom;
+            let newY = (mouseY - this.canvasOffset.y) / this.canvasZoom - dragOffset.y / this.canvasZoom;
 
             // 网格吸附
             if (this.snapToGrid) {
