@@ -509,11 +509,21 @@ class RocketBuilder {
                 if (!hasMoved) {
                     this.selectAssemblyPart(assemblyPart);
                 } else {
-                    // 如果移动了部件，检查是否有连接因距离过远而需要断开
+                    // 如果移动了部件，显示详细调试信息并检查连接
+                    this.logPartMovementDebugInfo(assemblyPart, startPosition);
+                    
+                    // 检查是否有连接因距离过远而需要断开
                     const brokenConnections = this.assembly.checkAndBreakInvalidConnections();
                     if (brokenConnections.length > 0 && typeof showNotification === 'function') {
                         showNotification('连接断开', 
                             `${brokenConnections.length}个连接因距离过远而自动断开`, 'warning');
+                    }
+                    
+                    // 尝试在移动后建立新的自动连接
+                    const newConnection = this.attemptAutoConnectForMovedPart(assemblyPart);
+                    if (newConnection && typeof showNotification === 'function') {
+                        showNotification('自动连接', 
+                            `部件移动后自动连接到 ${newConnection.targetPart.data.name}`, 'success');
                     }
                     
                     // 更新连接线显示
@@ -968,6 +978,263 @@ class RocketBuilder {
             
             rocketAssembly.appendChild(line);
         });
+    }
+
+    // 记录部件移动的调试信息
+    logPartMovementDebugInfo(assemblyPart, startPosition) {
+        console.log('\n=== 部件移动调试信息 ===');
+        console.log(`部件: ${assemblyPart.data.name} (ID: ${assemblyPart.id})`);
+        console.log(`起始位置: (${startPosition.x.toFixed(2)}, ${startPosition.y.toFixed(2)})`);
+        console.log(`结束位置: (${assemblyPart.position.x.toFixed(2)}, ${assemblyPart.position.y.toFixed(2)})`);
+        
+        const deltaX = assemblyPart.position.x - startPosition.x;
+        const deltaY = assemblyPart.position.y - startPosition.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        console.log(`移动距离: (${deltaX.toFixed(2)}, ${deltaY.toFixed(2)}) = ${distance.toFixed(2)}px`);
+        
+        // 显示画布状态
+        console.log(`画布缩放: ${this.canvasZoom.toFixed(2)}`);
+        console.log(`画布偏移: (${this.canvasOffset.x.toFixed(2)}, ${this.canvasOffset.y.toFixed(2)})`);
+        console.log(`网格吸附: ${this.snapToGrid ? '开启' : '关闭'}`);
+        
+        // 显示部件的连接点信息
+        if (assemblyPart.data.attachment_points) {
+            console.log('\n连接点信息:');
+            const partCenterX = assemblyPart.position.x + (assemblyPart.data.dimensions.width * 20);
+            const partCenterY = assemblyPart.position.y + (assemblyPart.data.dimensions.height * 20);
+            
+            Object.entries(assemblyPart.data.attachment_points).forEach(([pointName, pointData]) => {
+                const pointX = partCenterX + (pointData.x * 40);
+                const pointY = partCenterY + (pointData.y * 40);
+                console.log(`  ${pointName}: (${pointX.toFixed(2)}, ${pointY.toFixed(2)}) [尺寸: ${pointData.size}]`);
+            });
+        } else {
+            console.log('该部件没有连接点');
+        }
+        
+        // 显示与该部件相关的现有连接
+        const relatedConnections = this.assembly.connections.filter(conn => 
+            conn.partA === assemblyPart.id || conn.partB === assemblyPart.id
+        );
+        
+        if (relatedConnections.length > 0) {
+            console.log('\n相关连接:');
+            relatedConnections.forEach(connection => {
+                const otherPartId = connection.partA === assemblyPart.id ? connection.partB : connection.partA;
+                const otherPart = this.assembly.parts.find(p => p.id === otherPartId);
+                const thisPoint = connection.partA === assemblyPart.id ? connection.attachPointA : connection.attachPointB;
+                const otherPoint = connection.partA === assemblyPart.id ? connection.attachPointB : connection.attachPointA;
+                
+                console.log(`  连接到 ${otherPart?.data.name || '未知部件'}`);
+                console.log(`    本部件连接点: ${thisPoint}`);
+                console.log(`    对方连接点: ${otherPoint}`);
+                console.log(`    连接ID: ${connection.id}`);
+                
+                // 计算连接点间的当前距离
+                if (otherPart && assemblyPart.data.attachment_points && otherPart.data.attachment_points) {
+                    const thisAttach = assemblyPart.data.attachment_points[thisPoint];
+                    const otherAttach = otherPart.data.attachment_points[otherPoint];
+                    
+                    if (thisAttach && otherAttach) {
+                        const thisCenterX = assemblyPart.position.x + (assemblyPart.data.dimensions.width * 20);
+                        const thisCenterY = assemblyPart.position.y + (assemblyPart.data.dimensions.height * 20);
+                        const thisPointX = thisCenterX + (thisAttach.x * 40);
+                        const thisPointY = thisCenterY + (thisAttach.y * 40);
+                        
+                        const otherCenterX = otherPart.position.x + (otherPart.data.dimensions.width * 20);
+                        const otherCenterY = otherPart.position.y + (otherPart.data.dimensions.height * 20);
+                        const otherPointX = otherCenterX + (otherAttach.x * 40);
+                        const otherPointY = otherCenterY + (otherAttach.y * 40);
+                        
+                        const connDistance = Math.sqrt(
+                            Math.pow(thisPointX - otherPointX, 2) + 
+                            Math.pow(thisPointY - otherPointY, 2)
+                        );
+                        
+                        console.log(`    当前连接点距离: ${connDistance.toFixed(2)}px (阈值: 50px)`);
+                        console.log(`    连接状态: ${connDistance <= 50 ? '✓ 有效' : '✗ 将断开'}`);
+                    }
+                }
+            });
+        } else {
+            console.log('该部件没有相关连接');
+        }
+        
+        // 显示附近的其他部件
+        console.log('\n附近部件检测:');
+        const nearbyParts = this.assembly.parts.filter(part => {
+            if (part.id === assemblyPart.id) return false; // 排除自身
+            
+            const distance = Math.sqrt(
+                Math.pow(part.position.x - assemblyPart.position.x, 2) + 
+                Math.pow(part.position.y - assemblyPart.position.y, 2)
+            );
+            return distance <= 200; // 200像素范围内
+        });
+        
+        if (nearbyParts.length > 0) {
+            nearbyParts.forEach(nearbyPart => {
+                const distance = Math.sqrt(
+                    Math.pow(nearbyPart.position.x - assemblyPart.position.x, 2) + 
+                    Math.pow(nearbyPart.position.y - assemblyPart.position.y, 2)
+                );
+                console.log(`  ${nearbyPart.data.name}: ${distance.toFixed(2)}px`);
+                
+                // 检查是否有潜在的连接机会
+                if (assemblyPart.data.attachment_points && nearbyPart.data.attachment_points) {
+                    let minConnectionDistance = Infinity;
+                    let potentialConnection = null;
+                    
+                    Object.entries(assemblyPart.data.attachment_points).forEach(([thisPointName, thisPointData]) => {
+                        Object.entries(nearbyPart.data.attachment_points).forEach(([otherPointName, otherPointData]) => {
+                            if (Math.abs(thisPointData.size - otherPointData.size) < 0.1) {
+                                const thisCenterX = assemblyPart.position.x + (assemblyPart.data.dimensions.width * 20);
+                                const thisCenterY = assemblyPart.position.y + (assemblyPart.data.dimensions.height * 20);
+                                const thisPointX = thisCenterX + (thisPointData.x * 40);
+                                const thisPointY = thisCenterY + (thisPointData.y * 40);
+                                
+                                const otherCenterX = nearbyPart.position.x + (nearbyPart.data.dimensions.width * 20);
+                                const otherCenterY = nearbyPart.position.y + (nearbyPart.data.dimensions.height * 20);
+                                const otherPointX = otherCenterX + (otherPointData.x * 40);
+                                const otherPointY = otherCenterY + (otherPointData.y * 40);
+                                
+                                const connDistance = Math.sqrt(
+                                    Math.pow(thisPointX - otherPointX, 2) + 
+                                    Math.pow(thisPointY - otherPointY, 2)
+                                );
+                                
+                                if (connDistance < minConnectionDistance) {
+                                    minConnectionDistance = connDistance;
+                                    potentialConnection = {
+                                        thisPoint: thisPointName,
+                                        otherPoint: otherPointName,
+                                        distance: connDistance
+                                    };
+                                }
+                            }
+                        });
+                    });
+                    
+                    if (potentialConnection && minConnectionDistance <= 120) {
+                        console.log(`    潜在连接: ${potentialConnection.thisPoint} <-> ${potentialConnection.otherPoint} (${minConnectionDistance.toFixed(2)}px)`);
+                    }
+                }
+            });
+        } else {
+            console.log('  附近200px范围内没有其他部件');
+        }
+        
+        console.log('=== 部件移动调试信息结束 ===\n');
+    }
+
+    // 为移动后的部件尝试自动连接
+    attemptAutoConnectForMovedPart(movedPart) {
+        console.log('\n=== 移动后自动连接检测 ===');
+        console.log(`检测部件: ${movedPart.data.name} (ID: ${movedPart.id})`);
+        
+        if (!movedPart.data.attachment_points) {
+            console.log('该部件没有连接点，无法连接');
+            return null;
+        }
+        
+        const connectionRange = 25; // 移动后的连接检测范围更小，要求更精确
+        let bestConnection = null;
+        let minDistance = connectionRange;
+        
+        // 计算移动部件的连接点位置
+        const movedPartCenterX = movedPart.position.x + (movedPart.data.dimensions.width * 20);
+        const movedPartCenterY = movedPart.position.y + (movedPart.data.dimensions.height * 20);
+        
+        // 遍历移动部件的每个连接点
+        Object.entries(movedPart.data.attachment_points).forEach(([movedPointName, movedPointData]) => {
+            const movedPointX = movedPartCenterX + (movedPointData.x * 40);
+            const movedPointY = movedPartCenterY + (movedPointData.y * 40);
+            
+            console.log(`检查移动部件连接点 ${movedPointName}: (${movedPointX.toFixed(2)}, ${movedPointY.toFixed(2)})`);
+            
+            // 检查该连接点是否已经有连接
+            const existingConnection = this.assembly.connections.find(conn => 
+                (conn.partA === movedPart.id && conn.attachPointA === movedPointName) ||
+                (conn.partB === movedPart.id && conn.attachPointB === movedPointName)
+            );
+            
+            if (existingConnection) {
+                console.log(`  连接点 ${movedPointName} 已有连接，跳过`);
+                return;
+            }
+            
+            // 检查其他部件的连接点
+            this.assembly.parts.forEach(targetPart => {
+                if (targetPart.id === movedPart.id || !targetPart.data.attachment_points) return;
+                
+                const targetPartCenterX = targetPart.position.x + (targetPart.data.dimensions.width * 20);
+                const targetPartCenterY = targetPart.position.y + (targetPart.data.dimensions.height * 20);
+                
+                Object.entries(targetPart.data.attachment_points).forEach(([targetPointName, targetPointData]) => {
+                    // 检查目标连接点是否已有连接
+                    const targetExistingConnection = this.assembly.connections.find(conn => 
+                        (conn.partA === targetPart.id && conn.attachPointA === targetPointName) ||
+                        (conn.partB === targetPart.id && conn.attachPointB === targetPointName)
+                    );
+                    
+                    if (targetExistingConnection) {
+                        return; // 目标连接点已占用
+                    }
+                    
+                    const targetPointX = targetPartCenterX + (targetPointData.x * 40);
+                    const targetPointY = targetPartCenterY + (targetPointData.y * 40);
+                    
+                    // 计算连接点之间的距离
+                    const distance = Math.sqrt(
+                        Math.pow(movedPointX - targetPointX, 2) + 
+                        Math.pow(movedPointY - targetPointY, 2)
+                    );
+                    
+                    console.log(`    与 ${targetPart.data.name} 的 ${targetPointName} 距离: ${distance.toFixed(2)}px`);
+                    
+                    if (distance < minDistance) {
+                        // 检查连接兼容性
+                        if (Math.abs(movedPointData.size - targetPointData.size) < 0.1) {
+                            console.log(`    ✓ 找到兼容连接点！距离: ${distance.toFixed(2)}px`);
+                            
+                            minDistance = distance;
+                            bestConnection = {
+                                movedPart: movedPart,
+                                movedPoint: movedPointName,
+                                targetPart: targetPart,
+                                targetPoint: targetPointName,
+                                distance: distance
+                            };
+                        } else {
+                            console.log(`    ✗ 连接点尺寸不兼容: ${movedPointData.size} vs ${targetPointData.size}`);
+                        }
+                    }
+                });
+            });
+        });
+        
+        if (bestConnection) {
+            console.log('\n✓ 建立移动后自动连接:');
+            console.log(`  ${bestConnection.movedPart.data.name}.${bestConnection.movedPoint} <-> ${bestConnection.targetPart.data.name}.${bestConnection.targetPoint}`);
+            console.log(`  连接距离: ${bestConnection.distance.toFixed(2)}px`);
+            
+            // 创建连接记录
+            const connectionResult = this.assembly.connectParts(
+                bestConnection.movedPart.id,
+                bestConnection.movedPoint,
+                bestConnection.targetPart.id,
+                bestConnection.targetPoint
+            );
+            
+            console.log('连接创建结果:', connectionResult ? '成功' : '失败');
+            console.log('=== 移动后自动连接检测结束 ===\n');
+            
+            return bestConnection;
+        } else {
+            console.log('\n✗ 未找到合适的连接点');
+            console.log('=== 移动后自动连接检测结束 ===\n');
+            return null;
+        }
     }
 
     // 过滤部件
