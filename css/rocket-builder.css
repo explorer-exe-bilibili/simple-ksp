@@ -163,6 +163,9 @@
     transition: all 0.3s ease;
     -webkit-user-select: none;
     user-select: none;
+    /* 移动端触屏优化 */
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .part-item:hover {
@@ -298,6 +301,46 @@
     transition: transform 0.3s ease-out;
 }
 
+/* 移动端面板切换 */
+.mobile-panel-toggle {
+    display: none;
+    justify-content: center;
+    background: #2a2a2a;
+    border-bottom: 1px solid #333;
+    padding: 0.5rem;
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .mobile-panel-toggle {
+        display: flex;
+    }
+}
+
+.panel-toggle-btn {
+    background: #4a4a4a;
+    border: 1px solid #555;
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    font-family: 'Orbitron', sans-serif;
+    min-width: 80px;
+}
+
+.panel-toggle-btn:hover {
+    background: #5a5a5a;
+}
+
+.panel-toggle-btn.active {
+    background: #007acc;
+    border-color: #0066aa;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 122, 204, 0.3);
+}
+
 /* 主工作区样式 */
 .builder-workspace {
     display: flex;
@@ -327,6 +370,7 @@
     border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 8px 12px;
     border-radius: 8px;
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
 }
 
@@ -437,6 +481,9 @@
     -webkit-user-select: none;
     user-select: none;
     cursor: pointer;
+    /* 优化移动端触摸 */
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .assembly-part:hover {
@@ -445,6 +492,27 @@
 
 .assembly-part.part-selected {
     filter: drop-shadow(0 0 10px #4fc3f7) brightness(1.2);
+}
+
+/* 连通性状态样式 */
+.assembly-part.connected {
+    opacity: 1.0;
+}
+
+.assembly-part.disconnected {
+    opacity: 0.4;
+    filter: grayscale(0.3);
+}
+
+.assembly-part.disconnected:hover {
+    opacity: 0.6;
+    filter: grayscale(0.2) brightness(1.1);
+}
+
+.assembly-part.root-part {
+    border: 2px solid #ffff00 !important;
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
 }
 
 /* 拖拽时的样式 */
@@ -456,28 +524,6 @@
     filter: drop-shadow(0 0 15px #4fc3f7) brightness(1.3);
     transform: scale(1.05);
     z-index: 1000;
-}
-
-/* 连接点样式 */
-.attachment-point {
-    transition: all 0.2s ease;
-}
-
-.assembly-part:hover .attachment-point {
-    opacity: 1 !important;
-    transform: scale(1.2);
-}
-
-/* 显示连接点选项 */
-.show-attachment-points .attachment-point {
-    opacity: 1 !important;
-}
-
-/* 连接点高亮 */
-.attachment-point.highlight {
-    border-color: #ff6b00 !important;
-    background-color: rgba(255, 107, 0, 0.5) !important;
-    box-shadow: 0 0 10px rgba(255, 107, 0, 0.8);
 }
 
 /* 连接线 */
@@ -921,29 +967,143 @@
 @media (max-width: 768px) {
     .builder-main {
         flex-direction: column;
+        height: 100vh;
     }
     
+    /* 默认只显示装配区 */
     .parts-panel,
     .info-panel {
+        display: none;
+    }
+    
+    .parts-panel.active,
+    .info-panel.active {
+        display: block;
         width: 100%;
-        height: 200px;
+        height: 40vh;
         border: none;
-        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        flex-shrink: 0;
+        overflow-y: auto;
     }
     
     .assembly-area {
         flex: 1;
-        min-height: 400px;
+        min-height: 50vh;
+        overflow: hidden;
     }
     
+    .assembly-area.mobile-hidden {
+        display: none;
+    }
+    
+    /* 让装配画布在移动端更好适应 */
+    .assembly-canvas {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 300px;
+    }
+    
+    /* 缩小部件面板内容 */
+    .parts-list {
+        max-height: none;
+        overflow-y: auto;
+    }
+    
+    .part-item {
+        padding: 8px;
+        min-height: 60px;
+    }
+    
+    .part-icon {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .part-name {
+        font-size: 0.8rem;
+    }
+    
+    .part-stats {
+        font-size: 0.7rem;
+    }
+    
+    /* 部件分类按钮优化 */
     .parts-categories {
         flex-direction: row;
         overflow-x: auto;
+        gap: 5px;
+        padding: 5px;
     }
     
-    .category {
+    .filter-btn {
         white-space: nowrap;
-        min-width: 100px;
+        min-width: 60px;
+        font-size: 0.8rem;
+        padding: 6px 12px;
+    }
+    
+    /* 信息面板内容优化 */
+    .panel-section {
+        padding: 10px 15px;
+    }
+    
+    .panel-section h4 {
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+    
+    .stat-item {
+        padding: 2px 0;
+        font-size: 0.8rem;
+    }
+    
+    .help-text {
+        font-size: 0.7rem;
+        line-height: 1.3;
+    }
+    
+    .help-text p {
+        margin: 2px 0;
+    }
+    
+    /* 控制按钮适配 */
+    .assembly-controls {
+        flex-wrap: wrap;
+        gap: 8px;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+    }
+    
+    .control-btn, .control-checkbox {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+    
+    /* 移动端触屏拖拽优化 */
+    .assembly-part.dragging {
+        transform: scale(1.1);
+        z-index: 10000;
+        opacity: 0.9;
+        filter: drop-shadow(0 0 20px #4fc3f7);
+    }
+    
+    .part-item.dragging {
+        opacity: 0.7;
+        transform: scale(0.95);
+    }
+    
+    /* 增大触摸目标 */
+    .assembly-controls .control-btn,
+    .assembly-controls .control-checkbox {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* 防止误触 */
+    .assembly-canvas {
+        touch-action: none;
     }
 }
 
@@ -960,6 +1120,33 @@
 /* 部件在画布上的选中效果 */
 .part-selected {
     filter: drop-shadow(0 0 10px #4fc3f7);
+}
+
+/* 连通性信息样式 */
+.connectivity-info {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.info-note {
+    margin: 5px 0;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.root-part-highlight {
+    color: #ffff00;
+    font-weight: bold;
+}
+
+.root-part-highlight {
+    color: #ffff00;
+    font-weight: bold;
+}
+
+.disconnected-highlight {
+    opacity: 0.4;
+    color: #999;
 }
 
 /* 滚动条样式 */

@@ -69,10 +69,12 @@ class RocketParts {
             dimensions: { width: 1.25, height: 1.1 },
             attachment_points: {
                 top: { x: 0, y: -0.55, size: 1.25 },
-                bottom: { x: 0, y: 0.55, size: 1.25 }
+                bottom: { x: 0, y: 0.55, size: 1.25 },
+                left: { x: -0.625, y: 0, size: 0.625 },
+                right: { x: 0.625, y: 0, size: 0.625 }
             },
             svg_path: 'svg/fuel-tank.svg',
-            description: '小型液体燃料罐，适合轻型载具',
+            description: '小型液体燃料罐，适合轻型载具。支持顶部、底部和侧面连接。',
             stats: {
                 max_temp: 2000,
                 impact_tolerance: 6
@@ -94,10 +96,12 @@ class RocketParts {
             dimensions: { width: 1.25, height: 3.75 },
             attachment_points: {
                 top: { x: 0, y: -1.875, size: 1.25 },
-                bottom: { x: 0, y: 1.875, size: 1.25 }
+                bottom: { x: 0, y: 1.875, size: 1.25 },
+                left: { x: -0.625, y: 0, size: 0.625 },
+                right: { x: 0.625, y: 0, size: 0.625 }
             },
-            svg_path: 'svg/fuel-tank.svg',
-            description: '大型液体燃料罐，提供充足的燃料储存',
+            svg_path: 'svg/fl-t400-fuel-tank.svg',
+            description: '大型液体燃料罐，提供充足的燃料储存。支持顶部、底部和侧面连接。',
             stats: {
                 max_temp: 2000,
                 impact_tolerance: 6
@@ -428,7 +432,126 @@ class RocketAssembly {
         return this.parts.length;
     }
 
-    // 计算估算Delta-V（改进版）
+    // 获取所有与根部件连通的部件
+    getConnectedParts() {
+        if (!this.rootPart) return [];
+        
+        const connectedParts = new Set();
+        const visited = new Set();
+        
+        // 深度优先搜索找到所有连通的部件
+        const dfs = (partId) => {
+            if (visited.has(partId)) return;
+            visited.add(partId);
+            connectedParts.add(partId);
+            
+            // 查找所有与当前部件相连的其他部件
+            this.connections.forEach(connection => {
+                let connectedPartId = null;
+                if (connection.partA === partId) {
+                    connectedPartId = connection.partB;
+                } else if (connection.partB === partId) {
+                    connectedPartId = connection.partA;
+                }
+                
+                if (connectedPartId && !visited.has(connectedPartId)) {
+                    dfs(connectedPartId);
+                }
+            });
+        };
+        
+        // 从根部件开始搜索
+        dfs(this.rootPart);
+        
+        return Array.from(connectedParts);
+    }
+
+    // 获取未连通的部件
+    getDisconnectedParts() {
+        const connectedParts = this.getConnectedParts();
+        return this.parts.filter(part => !connectedParts.includes(part.id)).map(part => part.id);
+    }
+
+    // 检查部件是否与根部件连通
+    isPartConnectedToRoot(partId) {
+        return this.getConnectedParts().includes(partId);
+    }
+
+    // 计算只包含连通部件的总质量
+    getConnectedMass() {
+        const connectedPartIds = this.getConnectedParts();
+        
+        return this.parts
+            .filter(part => connectedPartIds.includes(part.id))
+            .reduce((total, part) => {
+                let partMass = part.data.mass; // 干重
+                
+                // 如果是燃料罐，加上燃料质量
+                if (part.fuelStatus) {
+                    // 假设燃料密度：液体燃料 0.005 t/单位，氧化剂 0.0055 t/单位
+                    const fuelMass = (part.fuelStatus.liquid_fuel * 0.005) + 
+                                   (part.fuelStatus.oxidizer * 0.0055);
+                    partMass += fuelMass;
+                }
+                
+                return total + partMass;
+            }, 0);
+    }
+
+    // 计算只包含连通部件的推力
+    getConnectedThrust() {
+        const connectedPartIds = this.getConnectedParts();
+        
+        return this.parts
+            .filter(part => connectedPartIds.includes(part.id) && part.data.type === 'engine')
+            .reduce((total, part) => total + (part.data.thrust || 0), 0);
+    }
+
+    // 获取连通部件数量
+    getConnectedPartCount() {
+        return this.getConnectedParts().length;
+    }
+
+    // 计算只包含连通部件的Delta-V
+    estimateConnectedDeltaV() {
+        const connectedPartIds = this.getConnectedParts();
+        
+        // 只计算连通的引擎
+        const connectedEngines = this.parts.filter(part => 
+            connectedPartIds.includes(part.id) && part.data.type === 'engine'
+        );
+        
+        if (connectedEngines.length === 0) return 0;
+
+        const avgIsp = connectedEngines.reduce((sum, engine) => 
+            sum + (engine.data.isp_vacuum || 300), 0
+        ) / connectedEngines.length;
+        
+        // 计算连通部件的实际燃料质量和干重
+        let totalFuelMass = 0;
+        let dryMass = 0;
+        
+        this.parts
+            .filter(part => connectedPartIds.includes(part.id))
+            .forEach(part => {
+                dryMass += part.data.mass;
+                
+                // 如果是燃料罐，计算燃料质量
+                if (part.fuelStatus) {
+                    totalFuelMass += (part.fuelStatus.liquid_fuel * 0.005) + 
+                                   (part.fuelStatus.oxidizer * 0.0055);
+                }
+            });
+        
+        const wetMass = dryMass + totalFuelMass;
+
+        if (wetMass <= dryMass || totalFuelMass <= 0) return 0;
+
+        const g = 9.81;
+        return avgIsp * g * Math.log(wetMass / dryMass);
+    }
+
+    // 计算估算Delta-V（保留原方法，但建议使用estimateConnectedDeltaV）
     estimateDeltaV() {
         const engines = this.parts.filter(part => part.data.type === 'engine');
         if (engines.length === 0) return 0;

@@ -36,10 +36,17 @@
             </div>
         </header>
 
+        <!-- 移动端面板切换按钮 -->
+        <div class="mobile-panel-toggle">
+            <button class="panel-toggle-btn active" data-panel="assembly">装配区</button>
+            <button class="panel-toggle-btn" data-panel="parts">部件库</button>
+            <button class="panel-toggle-btn" data-panel="info">信息</button>
+        </div>
+
         <!-- 主要工作区 -->
         <main class="builder-workspace">
             <!-- 左侧部件面板 -->
-            <aside class="parts-panel">
+            <aside class="parts-panel" id="partsPanel">
                 <div class="panel-header">
                     <h3>部件库</h3>
                     <div class="parts-filter">
@@ -70,15 +77,23 @@
                         </svg>
                         清空
                     </button>
+                    
+                    <button class="control-btn" id="resetViewBtn" onclick="rocketBuilder.resetView()">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" fill="currentColor"/>
+                        </svg>
+                        重置视图
+                    </button>
+                    
                     <label class="control-checkbox">
-                        <input type="checkbox" id="showAttachmentPointsCheckbox">
-                        显示连接点
+                        <input type="checkbox" id="snapToGridCheckbox" checked>
+                        网格吸附
                     </label>
                 </div>
             </div>
 
             <!-- 右侧信息面板 -->
-            <aside class="info-panel">
+            <aside class="info-panel" id="infoPanel">
                 <div class="panel-section">
                     <h4>载具信息</h4>
                     <div class="rocket-stats" id="rocketStats">
@@ -99,6 +114,14 @@
                             <span class="stat-value" id="deltaV">0 m/s</span>
                         </div>
                     </div>
+                    <div class="connectivity-info">
+                        <p class="info-note">
+                            <small>💡 只有与<span class="root-part-highlight">根部件</span>连通的部件参与计算</small>
+                        </p>
+                        <p class="info-note">
+                            <small>未连通的部件显示为<span class="disconnected-highlight">半透明</span></small>
+                        </p>
+                    </div>
                 </div>
                 
                 <div class="panel-section">
@@ -117,8 +140,9 @@
                         <p>• 拖拽空白区域移动视图</p>
                         <p>• 点击部件查看详细信息</p>
                         <p>• 右键删除部件</p>
-                        <p>• Ctrl+滚轮缩放，双击重置视图</p>
-                        <p>• 按G切换网格吸附，R重置视图，A切换连接点显示</p>
+                        <p>• Ctrl+滚轮缩放</p>
+                        <p>• 使用底部控制按钮：重置视图、切换网格吸附、显示连接点</p>
+                        <p>• 键盘快捷键：G(网格吸附) R(重置视图) A(连接点显示)</p>
                         <p>• 移动部件时按F12查看控制台调试信息</p>
                     </div>
                 </div>

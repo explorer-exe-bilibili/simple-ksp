@@ -9,7 +9,6 @@ class RocketBuilder {
         this.canvasZoom = 1.0;
         this.snapToGrid = true;
         this.gridSize = 20;
-        this.showAttachmentPoints = false; // 是否显示连接点
         
         this.init();
     }
@@ -24,20 +23,65 @@ class RocketBuilder {
 
         this.setupCanvas();
         this.setupEventListeners();
-        this.setupAttachmentPointsControl();
+        this.setupUIControls();
         this.loadPartsPanel();
         this.updateUI();
     }
 
-    // 设置连接点控制
-    setupAttachmentPointsControl() {
-        const showAttachmentPointsCheckbox = document.getElementById('showAttachmentPointsCheckbox');
-        if (showAttachmentPointsCheckbox) {
-            showAttachmentPointsCheckbox.addEventListener('change', (e) => {
-                this.showAttachmentPoints = e.target.checked;
-                this.toggleAttachmentPointsVisibility();
+    // 获取统一的事件坐标（支持鼠标和触屏）
+    getEventCoordinates(e) {
+        if (e.touches && e.touches.length > 0) {
+            return {
+                clientX: e.touches[0].clientX,
+                clientY: e.touches[0].clientY
+            };
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            return {
+                clientX: e.changedTouches[0].clientX,
+                clientY: e.changedTouches[0].clientY
+            };
+        } else {
+            return {
+                clientX: e.clientX,
+                clientY: e.clientY
+            };
+        }
+    }
+
+    // 添加鼠标和触屏事件监听器
+    addPointerEventListeners(element, onStart, onMove, onEnd) {
+        // 鼠标事件
+        element.addEventListener('mousedown', onStart);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onEnd);
+        
+        // 触屏事件
+        element.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // 防止页面滚动
+            onStart(e);
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // 防止页面滚动
+            onMove(e);
+        }, { passive: false });
+        
+        document.addEventListener('touchend', onEnd);
+        document.addEventListener('touchcancel', onEnd);
+    }
+
+    // 设置UI控制
+    setupUIControls() {
+        // 网格吸附控制
+        const snapToGridCheckbox = document.getElementById('snapToGridCheckbox');
+        if (snapToGridCheckbox) {
+            // 设置初始状态
+            snapToGridCheckbox.checked = this.snapToGrid;
+            
+            snapToGridCheckbox.addEventListener('change', (e) => {
+                this.snapToGrid = e.target.checked;
                 if (typeof showNotification === 'function') {
-                    showNotification('连接点显示', `连接点显示已${this.showAttachmentPoints ? '开启' : '关闭'}`, 'info');
+                    showNotification('网格吸附', `网格吸附已${this.snapToGrid ? '开启' : '关闭'}`, 'info');
                 }
             });
         }
@@ -79,6 +123,58 @@ class RocketBuilder {
         
         // 右键菜单
         document.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // 移动端面板切换
+        this.setupMobilePanelToggle();
+    }
+
+    // 设置移动端面板切换
+    setupMobilePanelToggle() {
+        const toggleButtons = document.querySelectorAll('.panel-toggle-btn');
+        const partsPanel = document.getElementById('partsPanel');
+        const infoPanel = document.getElementById('infoPanel');
+        const assemblyArea = document.querySelector('.assembly-area');
+
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const targetPanel = e.target.dataset.panel;
+                
+                // 更新按钮状态
+                toggleButtons.forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // 隐藏所有面板
+                partsPanel.classList.remove('active');
+                infoPanel.classList.remove('active');
+                assemblyArea.classList.remove('mobile-hidden');
+                
+                // 显示选中的面板
+                switch(targetPanel) {
+                    case 'parts':
+                        partsPanel.classList.add('active');
+                        assemblyArea.classList.add('mobile-hidden');
+                        break;
+                    case 'info':
+                        infoPanel.classList.add('active');
+                        assemblyArea.classList.add('mobile-hidden');
+                        break;
+                    case 'assembly':
+                    default:
+                        // 装配区默认显示，不需要额外操作
+                        break;
+                }
+                
+                // 显示通知
+                if (typeof showNotification === 'function') {
+                    const panelNames = {
+                        'assembly': '装配区',
+                        'parts': '部件库',
+                        'info': '信息面板'
+                    };
+                    showNotification('面板切换', `已切换到${panelNames[targetPanel]}`, 'info');
+                }
+            });
+        });
     }
 
     // 加载部件面板
@@ -118,11 +214,90 @@ class RocketBuilder {
             </div>
         `;
 
-        // 添加拖拽事件
+        // 添加拖拽事件（桌面端）
         partDiv.addEventListener('dragstart', (e) => this.handlePartDragStart(e, part));
         partDiv.addEventListener('click', () => this.selectPartType(part));
 
+        // 添加移动端触屏拖拽支持
+        this.setupPartTouchDrag(partDiv, part);
+
         return partDiv;
+    }
+
+    // 设置部件的触屏拖拽
+    setupPartTouchDrag(partElement, part) {
+        let isDragging = false;
+        let dragClone = null;
+        let startPos = { x: 0, y: 0 };
+
+        const handleTouchStart = (e) => {
+            if (e.touches.length !== 1) return;
+            
+            isDragging = true;
+            const coords = this.getEventCoordinates(e);
+            startPos = { x: coords.clientX, y: coords.clientY };
+            
+            // 设置当前拖拽的部件
+            this.draggedPart = part;
+            
+            // 创建拖拽预览
+            dragClone = partElement.cloneNode(true);
+            dragClone.style.position = 'fixed';
+            dragClone.style.zIndex = '10000';
+            dragClone.style.pointerEvents = 'none';
+            dragClone.style.opacity = '0.8';
+            dragClone.style.transform = 'scale(0.8)';
+            dragClone.style.left = (coords.clientX - 40) + 'px';
+            dragClone.style.top = (coords.clientY - 40) + 'px';
+            document.body.appendChild(dragClone);
+            
+            partElement.classList.add('dragging');
+        };
+
+        const handleTouchMove = (e) => {
+            if (!isDragging || !dragClone) return;
+            
+            const coords = this.getEventCoordinates(e);
+            dragClone.style.left = (coords.clientX - 40) + 'px';
+            dragClone.style.top = (coords.clientY - 40) + 'px';
+        };
+
+        const handleTouchEnd = (e) => {
+            if (!isDragging) return;
+            
+            isDragging = false;
+            partElement.classList.remove('dragging');
+            
+            if (dragClone) {
+                dragClone.remove();
+                dragClone = null;
+            }
+            
+            // 检查是否拖拽到了装配区
+            const coords = this.getEventCoordinates(e);
+            const elementAtPoint = document.elementFromPoint(coords.clientX, coords.clientY);
+            
+            if (elementAtPoint && (elementAtPoint.closest('.assembly-canvas') || elementAtPoint.closest('.rocket-assembly'))) {
+                // 模拟拖放到装配区
+                const canvasRect = this.canvas.getBoundingClientRect();
+                const fakeEvent = {
+                    preventDefault: () => {},
+                    clientX: coords.clientX,
+                    clientY: coords.clientY
+                };
+                this.handleCanvasDrop(fakeEvent);
+            }
+            
+            this.draggedPart = null;
+        };
+
+        // 只在移动端添加触屏事件
+        if ('ontouchstart' in window) {
+            partElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
+            document.addEventListener('touchcancel', handleTouchEnd);
+        }
     }
 
     // 处理部件拖拽开始
@@ -387,9 +562,6 @@ class RocketBuilder {
             partElement.innerHTML = svg;
             partElement.querySelector('svg').style.width = '100%';
             partElement.querySelector('svg').style.height = '100%';
-            
-            // 添加连接点显示
-            this.addAttachmentPointsToElement(partElement, assemblyPart);
         });
 
         // 添加右键删除功能
@@ -404,64 +576,41 @@ class RocketBuilder {
         rocketAssembly.appendChild(partElement);
     }
 
-    // 为部件元素添加连接点显示
-    addAttachmentPointsToElement(partElement, assemblyPart) {
-        if (!assemblyPart.data.attachment_points) return;
-
-        const partWidth = assemblyPart.data.dimensions.width * 40;
-        const partHeight = assemblyPart.data.dimensions.height * 40;
-
-        Object.entries(assemblyPart.data.attachment_points).forEach(([pointName, pointData]) => {
-            const pointElement = document.createElement('div');
-            pointElement.className = 'attachment-point';
-            pointElement.dataset.pointName = pointName;
-            
-            // 计算连接点相对于部件中心的位置
-            const pointX = (partWidth / 2) + (pointData.x * 40);
-            const pointY = (partHeight / 2) + (pointData.y * 40);
-            
-            pointElement.style.position = 'absolute';
-            pointElement.style.left = `${pointX - 6}px`; // 减去一半的宽度来居中
-            pointElement.style.top = `${pointY - 6}px`;
-            pointElement.style.width = '12px';
-            pointElement.style.height = '12px';
-            pointElement.style.borderRadius = '50%';
-            pointElement.style.border = '2px solid #00ff00';
-            pointElement.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
-            pointElement.style.pointerEvents = 'none';
-            pointElement.style.zIndex = '1000';
-            pointElement.style.opacity = '0.7';
-            
-            partElement.appendChild(pointElement);
-        });
-    }
-
     // 使部件可拖拽移动
     makePartDraggable(partElement, assemblyPart) {
         let isDragging = false;
         let dragOffset = { x: 0, y: 0 };
         let startPosition = { x: 0, y: 0 };
         let hasMoved = false;
+        let initialPointerPosition = { x: 0, y: 0 };
+        const MOVE_THRESHOLD = 5; // 像素，超过这个距离才认为是拖拽
 
-        // 鼠标按下开始拖拽
-        const handleMouseDown = (e) => {
-            if (e.button !== 0) return; // 只响应左键
+        // 统一的开始拖拽处理
+        const handlePointerDown = (e) => {
+            // 对于鼠标事件，只响应左键
+            if (e.type === 'mousedown' && e.button !== 0) return;
 
             isDragging = true;
             hasMoved = false;
             partElement.classList.add('dragging');
             
-            // 计算鼠标相对于画布的位置
+            const coords = this.getEventCoordinates(e);
+            
+            // 记录初始指针位置，用于计算移动距离
+            initialPointerPosition.x = coords.clientX;
+            initialPointerPosition.y = coords.clientY;
+            
+            // 计算指针相对于画布的位置
             const canvasRect = this.canvas.getBoundingClientRect();
-            const mouseCanvasX = e.clientX - canvasRect.left;
-            const mouseCanvasY = e.clientY - canvasRect.top;
+            const pointerCanvasX = coords.clientX - canvasRect.left;
+            const pointerCanvasY = coords.clientY - canvasRect.top;
             
             // 计算部件在变换后的实际显示位置
             const partCanvasX = (assemblyPart.position.x * this.canvasZoom) + this.canvasOffset.x;
             const partCanvasY = (assemblyPart.position.y * this.canvasZoom) + this.canvasOffset.y;
             
-            dragOffset.x = mouseCanvasX - partCanvasX;
-            dragOffset.y = mouseCanvasY - partCanvasY;
+            dragOffset.x = pointerCanvasX - partCanvasX;
+            dragOffset.y = pointerCanvasY - partCanvasY;
             
             startPosition.x = assemblyPart.position.x;
             startPosition.y = assemblyPart.position.y;
@@ -470,20 +619,35 @@ class RocketBuilder {
             e.stopPropagation();
         };
 
-        // 鼠标移动更新位置
-        const handleMouseMove = (e) => {
+        // 统一的移动处理
+        const handlePointerMove = (e) => {
             if (!isDragging) return;
 
-            hasMoved = true;
+            const coords = this.getEventCoordinates(e);
+            
+            // 计算从初始位置的移动距离
+            const moveDistance = Math.sqrt(
+                Math.pow(coords.clientX - initialPointerPosition.x, 2) + 
+                Math.pow(coords.clientY - initialPointerPosition.y, 2)
+            );
+            
+            // 只有当移动距离超过阈值时才认为是真正的拖拽
+            if (moveDistance > MOVE_THRESHOLD) {
+                hasMoved = true;
+            }
+            
+            // 如果还没有超过移动阈值，就不执行拖拽操作
+            if (!hasMoved) return;
+
             const canvasRect = this.canvas.getBoundingClientRect();
             
-            // 计算鼠标相对于画布的位置
-            const mouseX = e.clientX - canvasRect.left;
-            const mouseY = e.clientY - canvasRect.top;
+            // 计算指针相对于画布的位置
+            const pointerX = coords.clientX - canvasRect.left;
+            const pointerY = coords.clientY - canvasRect.top;
             
             // 应用逆变换来计算新位置
-            let newX = (mouseX - this.canvasOffset.x - dragOffset.x) / this.canvasZoom;
-            let newY = (mouseY - this.canvasOffset.y - dragOffset.y) / this.canvasZoom;
+            let newX = (pointerX - this.canvasOffset.x - dragOffset.x) / this.canvasZoom;
+            let newY = (pointerY - this.canvasOffset.y - dragOffset.y) / this.canvasZoom;
 
             // 网格吸附
             if (this.snapToGrid) {
@@ -499,8 +663,8 @@ class RocketBuilder {
             partElement.style.top = `${newY}px`;
         };
 
-        // 鼠标释放结束拖拽
-        const handleMouseUp = () => {
+        // 统一的结束拖拽处理
+        const handlePointerUp = () => {
             if (isDragging) {
                 isDragging = false;
                 partElement.classList.remove('dragging');
@@ -536,10 +700,26 @@ class RocketBuilder {
             }
         };
 
-        // 添加事件监听器
-        partElement.addEventListener('mousedown', handleMouseDown);
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+        // 添加鼠标事件监听器
+        partElement.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('mousemove', handlePointerMove);
+        document.addEventListener('mouseup', handlePointerUp);
+
+        // 添加触屏事件监听器
+        partElement.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handlePointerDown(e);
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                e.preventDefault();
+                handlePointerMove(e);
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', handlePointerUp);
+        document.addEventListener('touchcancel', handlePointerUp);
     }
 
     // 选择组装中的部件
@@ -557,6 +737,16 @@ class RocketBuilder {
 
         this.selectedPart = assemblyPart;
         this.updatePartInfo();
+        
+        // 在移动端自动切换到信息面板以显示部件详情
+        if (window.innerWidth <= 768) {
+            this.switchToInfoPanel();
+            
+            // 显示选中通知
+            if (typeof showNotification === 'function') {
+                showNotification('部件选中', `已选中 ${assemblyPart.data.name}，自动切换到信息面板`, 'info');
+            }
+        }
     }
 
     // 移除组装部件
@@ -674,14 +864,63 @@ class RocketBuilder {
 
     // 更新UI统计信息
     updateUI() {
-        // 更新载具统计
-        document.getElementById('totalMass').textContent = `${this.assembly.getTotalMass().toFixed(2)} t`;
-        document.getElementById('partCount').textContent = this.assembly.getPartCount();
-        document.getElementById('totalThrust').textContent = `${this.assembly.getTotalThrust().toFixed(1)} kN`;
-        document.getElementById('deltaV').textContent = `${this.assembly.estimateDeltaV().toFixed(0)} m/s`;
+        // 更新载具统计 - 使用连通部件统计
+        document.getElementById('totalMass').textContent = `${this.assembly.getConnectedMass().toFixed(2)} t`;
+        document.getElementById('partCount').textContent = `${this.assembly.getConnectedPartCount()}/${this.assembly.getPartCount()}`;
+        document.getElementById('totalThrust').textContent = `${this.assembly.getConnectedThrust().toFixed(1)} kN`;
+        document.getElementById('deltaV').textContent = `${this.assembly.estimateConnectedDeltaV().toFixed(0)} m/s`;
 
         // 更新部件信息
         this.updatePartInfo();
+        
+        // 更新部件连通性视觉状态
+        this.updatePartConnectivityVisuals();
+    }
+
+    // 更新部件连通性视觉状态
+    updatePartConnectivityVisuals() {
+        if (this.assembly.parts.length === 0) return;
+
+        // 获取连通和未连通的部件ID列表
+        const connectedPartIds = this.assembly.getConnectedParts();
+        const disconnectedPartIds = this.assembly.getDisconnectedParts();
+
+        console.log('连通部件:', connectedPartIds);
+        console.log('未连通部件:', disconnectedPartIds);
+
+        // 更新所有部件的视觉状态
+        document.querySelectorAll('.assembly-part').forEach(partElement => {
+            const partId = partElement.dataset.partId;
+            const svg = partElement.querySelector('svg');
+            
+            if (!svg) return;
+
+            if (disconnectedPartIds.includes(partId)) {
+                // 未连通部件设为半透明
+                partElement.style.opacity = '0.4';
+                partElement.classList.add('disconnected');
+                partElement.classList.remove('connected');
+                partElement.title = '未连接到根部件的部件（不参与计算）';
+            } else {
+                // 连通部件设为正常显示
+                partElement.style.opacity = '1.0';
+                partElement.classList.add('connected');
+                partElement.classList.remove('disconnected');
+                partElement.title = '已连接到根部件的部件';
+            }
+        });
+
+        // 如果有根部件，为其添加特殊标识
+        if (this.assembly.rootPart) {
+            const rootElement = document.querySelector(`.assembly-part[data-part-id="${this.assembly.rootPart}"]`);
+            if (rootElement) {
+                rootElement.classList.add('root-part');
+                rootElement.title = '根部件';
+                // 根部件添加特殊边框或标识
+                rootElement.style.border = '2px solid #ffff00';
+                rootElement.style.borderRadius = '4px';
+            }
+        }
     }
 
     // 获取当前选中部件的实际质量（包含燃料）
@@ -767,53 +1006,114 @@ class RocketBuilder {
         let panStart = { x: 0, y: 0 };
         let panOffset = { x: 0, y: 0 };
 
-        // 鼠标按下开始平移
-        this.canvas.addEventListener('mousedown', (e) => {
-            // 只在空白区域（非部件）响应，且只响应左键或中键
+        // 统一的平移开始处理
+        const handlePanStart = (e) => {
+            // 只在空白区域（非部件）响应
             if (e.target === this.canvas || e.target.classList.contains('canvas-grid') || 
                 e.target.classList.contains('rocket-assembly')) {
                 
-                if (e.button === 0 || e.button === 1) { // 左键或中键
-                    isPanning = true;
-                    panStart.x = e.clientX;
-                    panStart.y = e.clientY;
-                    panOffset.x = this.canvasOffset.x;
-                    panOffset.y = this.canvasOffset.y;
-                    
-                    this.canvas.style.cursor = 'grabbing';
-                    e.preventDefault();
-                }
+                // 对于鼠标事件，只响应左键或中键
+                if (e.type === 'mousedown' && e.button !== 0 && e.button !== 1) return;
+                
+                isPanning = true;
+                const coords = this.getEventCoordinates(e);
+                panStart.x = coords.clientX;
+                panStart.y = coords.clientY;
+                panOffset.x = this.canvasOffset.x;
+                panOffset.y = this.canvasOffset.y;
+                
+                this.canvas.style.cursor = 'grabbing';
+                e.preventDefault();
             }
-        });
+        };
 
-        // 鼠标移动更新平移
-        document.addEventListener('mousemove', (e) => {
+        // 统一的平移处理
+        const handlePanMove = (e) => {
             if (!isPanning) return;
 
-            const deltaX = e.clientX - panStart.x;
-            const deltaY = e.clientY - panStart.y;
+            const coords = this.getEventCoordinates(e);
+            const deltaX = coords.clientX - panStart.x;
+            const deltaY = coords.clientY - panStart.y;
             
             this.canvasOffset.x = panOffset.x + deltaX;
             this.canvasOffset.y = panOffset.y + deltaY;
             
             this.updateCanvasTransform();
-        });
+        };
 
-        // 鼠标释放结束平移
-        document.addEventListener('mouseup', (e) => {
+        // 统一的平移结束处理
+        const handlePanEnd = () => {
             if (isPanning) {
                 isPanning = false;
                 this.canvas.style.cursor = '';
             }
-        });
+        };
 
-        // 双击重置视图
+        // 添加鼠标事件
+        this.canvas.addEventListener('mousedown', handlePanStart);
+        document.addEventListener('mousemove', handlePanMove);
+        document.addEventListener('mouseup', handlePanEnd);
+
+        // 添加触屏事件
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                handlePanStart(e);
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchmove', (e) => {
+            if (isPanning && e.touches.length === 1) {
+                e.preventDefault();
+                handlePanMove(e);
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchend', handlePanEnd);
+        document.addEventListener('touchcancel', handlePanEnd);
+
+        // 双击重置视图（桌面端）
         this.canvas.addEventListener('dblclick', (e) => {
             if (e.target === this.canvas || e.target.classList.contains('canvas-grid') || 
                 e.target.classList.contains('rocket-assembly')) {
                 this.resetCanvasView();
             }
         });
+
+        // 移动端双指缩放支持
+        let lastTouchDistance = 0;
+        let initialZoom = 1.0;
+
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                lastTouchDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                initialZoom = this.canvasZoom;
+            }
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                
+                const scale = currentDistance / lastTouchDistance;
+                const newZoom = initialZoom * scale;
+                
+                // 限制缩放范围
+                this.canvasZoom = Math.max(0.1, Math.min(3.0, newZoom));
+                this.updateCanvasTransform();
+            }
+        }, { passive: false });
 
         // 中键点击重置视图
         this.canvas.addEventListener('mousedown', (e) => {
@@ -874,6 +1174,11 @@ class RocketBuilder {
         }
     }
 
+    // 重置视图 - 提供给外部调用
+    resetView() {
+        this.resetCanvasView();
+    }
+
     // 处理键盘快捷键
     handleKeyboard(e) {
         switch(e.key) {
@@ -899,30 +1204,6 @@ class RocketBuilder {
             case 'r':
                 this.resetCanvasView();
                 break;
-            case 'a':
-                // 切换连接点显示
-                this.showAttachmentPoints = !this.showAttachmentPoints;
-                const checkbox = document.getElementById('showAttachmentPointsCheckbox');
-                if (checkbox) {
-                    checkbox.checked = this.showAttachmentPoints;
-                }
-                this.toggleAttachmentPointsVisibility();
-                if (typeof showNotification === 'function') {
-                    showNotification('连接点显示', `连接点显示已${this.showAttachmentPoints ? '开启' : '关闭'}`, 'info');
-                }
-                break;
-        }
-    }
-
-    // 切换连接点可见性
-    toggleAttachmentPointsVisibility() {
-        const rocketAssembly = document.getElementById('rocketAssembly');
-        if (!rocketAssembly) return;
-
-        if (this.showAttachmentPoints) {
-            rocketAssembly.classList.add('show-attachment-points');
-        } else {
-            rocketAssembly.classList.remove('show-attachment-points');
         }
     }
 
@@ -1266,7 +1547,94 @@ class RocketBuilder {
     // 选择部件类型（用于显示信息）
     selectPartType(part) {
         console.log('选中部件类型:', part.name);
-        // 可以在这里显示部件详情
+        
+        // 在移动设备上自动添加部件到装配区中心
+        if (window.innerWidth <= 768) {
+            this.autoAddPartToCenter(part);
+            this.switchToAssemblyPanel();
+        }
+    }
+
+    // 自动添加部件到装配区中心
+    autoAddPartToCenter(part) {
+        // 计算画布中心位置
+        const centerPosition = { x: 400, y: 300 }; // 画布中心 (800x600)
+        
+        // 调整到部件的中心点
+        const partWidth = part.dimensions.width * 40;
+        const partHeight = part.dimensions.height * 40;
+        centerPosition.x -= partWidth / 2;
+        centerPosition.y -= partHeight / 2;
+        
+        // 网格吸附
+        if (this.snapToGrid) {
+            centerPosition.x = Math.round(centerPosition.x / this.gridSize) * this.gridSize;
+            centerPosition.y = Math.round(centerPosition.y / this.gridSize) * this.gridSize;
+        }
+
+        // 添加部件到装配清单（使用正确的参数格式）
+        const assemblyPart = this.assembly.addPart(part, centerPosition);
+        
+        // 添加部件到画布（这是关键！）
+        this.addPartToCanvas(assemblyPart);
+        
+        // 重置视图确保部件可见
+        this.resetCanvasView();
+        
+        // 更新UI和连接线
+        this.updateUI();
+        this.updateConnectionLines();
+        
+        // 显示通知
+        if (typeof showNotification === 'function') {
+            showNotification('部件添加', `${part.name}已添加到装配区中心`, 'success');
+        }
+        
+        console.log('自动添加部件到中心:', part.name, '位置:', centerPosition);
+    }
+
+    // 切换到装配区面板
+    switchToAssemblyPanel() {
+        const assemblyButton = document.querySelector('.panel-toggle-btn[data-panel="assembly"]');
+        const toggleButtons = document.querySelectorAll('.panel-toggle-btn');
+        const partsPanel = document.getElementById('partsPanel');
+        const infoPanel = document.getElementById('infoPanel');
+        const assemblyArea = document.querySelector('.assembly-area');
+        
+        if (assemblyButton && toggleButtons.length > 0) {
+            // 更新按钮状态
+            toggleButtons.forEach(btn => btn.classList.remove('active'));
+            assemblyButton.classList.add('active');
+            
+            // 隐藏其他面板，显示装配区
+            partsPanel.classList.remove('active');
+            infoPanel.classList.remove('active');
+            assemblyArea.classList.remove('mobile-hidden');
+            
+            console.log('自动切换到装配区');
+        }
+    }
+
+    // 切换到信息面板
+    switchToInfoPanel() {
+        const infoButton = document.querySelector('.panel-toggle-btn[data-panel="info"]');
+        const toggleButtons = document.querySelectorAll('.panel-toggle-btn');
+        const partsPanel = document.getElementById('partsPanel');
+        const infoPanel = document.getElementById('infoPanel');
+        const assemblyArea = document.querySelector('.assembly-area');
+        
+        if (infoButton && toggleButtons.length > 0) {
+            // 更新按钮状态
+            toggleButtons.forEach(btn => btn.classList.remove('active'));
+            infoButton.classList.add('active');
+            
+            // 隐藏其他面板，显示信息面板
+            partsPanel.classList.remove('active');
+            infoPanel.classList.add('active');
+            assemblyArea.classList.add('mobile-hidden');
+            
+            console.log('自动切换到信息面板');
+        }
     }
 
     // 清空组装
