@@ -77,6 +77,31 @@ class RocketParts {
                 max_temp: 2000,
                 impact_tolerance: 6
             }
+        },
+
+        // 大型燃料罐
+        'fl-t400-fuel-tank': {
+            id: 'fl-t400-fuel-tank',
+            name: 'FL-T400 燃料罐',
+            category: 'propulsion',
+            type: 'fuel-tank',
+            mass: 2.25, // 吨 (干重)
+            cost: 500,
+            fuel_capacity: {
+                liquid_fuel: 180, // 单位
+                oxidizer: 220 // 单位
+            },
+            dimensions: { width: 1.25, height: 3.75 },
+            attachment_points: {
+                top: { x: 0, y: -1.875, size: 1.25 },
+                bottom: { x: 0, y: 1.875, size: 1.25 }
+            },
+            svg_path: 'svg/fuel-tank.svg',
+            description: '大型液体燃料罐，提供充足的燃料储存',
+            stats: {
+                max_temp: 2000,
+                impact_tolerance: 6
+            }
         }
     };
 
@@ -217,6 +242,14 @@ class RocketAssembly {
             connections: []
         };
 
+        // 如果是燃料罐，初始化燃料状态
+        if (partData.type === 'fuel-tank' && partData.fuel_capacity) {
+            assemblyPart.fuelStatus = {
+                liquid_fuel: partData.fuel_capacity.liquid_fuel || 0,
+                oxidizer: partData.fuel_capacity.oxidizer || 0
+            };
+        }
+
         this.parts.push(assemblyPart);
         
         // 如果这是第一个部件，设为根部件
@@ -291,9 +324,96 @@ class RocketAssembly {
         return connection;
     }
 
+    // 断开连接
+    disconnectParts(connectionId) {
+        const connectionIndex = this.connections.findIndex(conn => conn.id === connectionId);
+        if (connectionIndex === -1) return false;
+
+        const connection = this.connections[connectionIndex];
+        
+        // 从连接列表中移除
+        this.connections.splice(connectionIndex, 1);
+        
+        // 从部件的连接列表中移除
+        const partA = this.parts.find(p => p.id === connection.partA);
+        const partB = this.parts.find(p => p.id === connection.partB);
+        
+        if (partA) {
+            partA.connections = partA.connections.filter(id => id !== connectionId);
+        }
+        if (partB) {
+            partB.connections = partB.connections.filter(id => id !== connectionId);
+        }
+
+        this.modified = new Date();
+        return true;
+    }
+
+    // 检查并断开由于位置移动而失效的连接
+    checkAndBreakInvalidConnections() {
+        const disconnectionTolerance = 50; // 连接断开的距离容忍度（像素）
+        const brokenConnections = [];
+
+        this.connections.forEach(connection => {
+            const partA = this.parts.find(p => p.id === connection.partA);
+            const partB = this.parts.find(p => p.id === connection.partB);
+            
+            if (!partA || !partB) return;
+
+            // 计算连接点的当前位置
+            const attachA = partA.data.attachment_points[connection.attachPointA];
+            const attachB = partB.data.attachment_points[connection.attachPointB];
+            
+            if (!attachA || !attachB) return;
+
+            // 计算部件A的连接点位置
+            const partACenterX = partA.position.x + (partA.data.dimensions.width * 20);
+            const partACenterY = partA.position.y + (partA.data.dimensions.height * 20);
+            const pointAX = partACenterX + (attachA.x * 40);
+            const pointAY = partACenterY + (attachA.y * 40);
+
+            // 计算部件B的连接点位置
+            const partBCenterX = partB.position.x + (partB.data.dimensions.width * 20);
+            const partBCenterY = partB.position.y + (partB.data.dimensions.height * 20);
+            const pointBX = partBCenterX + (attachB.x * 40);
+            const pointBY = partBCenterY + (attachB.y * 40);
+
+            // 计算连接点之间的距离
+            const distance = Math.sqrt(
+                Math.pow(pointAX - pointBX, 2) + 
+                Math.pow(pointAY - pointBY, 2)
+            );
+
+            // 如果距离超过容忍度，标记为需要断开
+            if (distance > disconnectionTolerance) {
+                console.log(`连接 ${connection.id} 因距离过远而断开 (距离: ${distance.toFixed(2)}px)`);
+                brokenConnections.push(connection.id);
+            }
+        });
+
+        // 断开失效的连接
+        brokenConnections.forEach(connectionId => {
+            this.disconnectParts(connectionId);
+        });
+
+        return brokenConnections;
+    }
+
     // 计算总质量
     getTotalMass() {
-        return this.parts.reduce((total, part) => total + part.data.mass, 0);
+        return this.parts.reduce((total, part) => {
+            let partMass = part.data.mass; // 干重
+            
+            // 如果是燃料罐，加上燃料质量
+            if (part.fuelStatus) {
+                // 假设燃料密度：液体燃料 0.005 t/单位，氧化剂 0.0055 t/单位
+                const fuelMass = (part.fuelStatus.liquid_fuel * 0.005) + 
+                               (part.fuelStatus.oxidizer * 0.0055);
+                partMass += fuelMass;
+            }
+            
+            return total + partMass;
+        }, 0);
     }
 
     // 计算总推力
@@ -308,20 +428,30 @@ class RocketAssembly {
         return this.parts.length;
     }
 
-    // 计算估算Delta-V（简化版）
+    // 计算估算Delta-V（改进版）
     estimateDeltaV() {
         const engines = this.parts.filter(part => part.data.type === 'engine');
         if (engines.length === 0) return 0;
 
-        const totalMass = this.getTotalMass();
         const avgIsp = engines.reduce((sum, engine) => sum + (engine.data.isp_vacuum || 300), 0) / engines.length;
         
-        // 简化计算：假设50%的质量是燃料
-        const fuelFraction = 0.5;
-        const dryMass = totalMass * (1 - fuelFraction);
-        const wetMass = totalMass;
+        // 计算实际燃料质量和干重
+        let totalFuelMass = 0;
+        let dryMass = 0;
+        
+        this.parts.forEach(part => {
+            dryMass += part.data.mass;
+            
+            // 如果是燃料罐，计算燃料质量
+            if (part.fuelStatus) {
+                totalFuelMass += (part.fuelStatus.liquid_fuel * 0.005) + 
+                               (part.fuelStatus.oxidizer * 0.0055);
+            }
+        });
+        
+        const wetMass = dryMass + totalFuelMass;
 
-        if (wetMass <= dryMass) return 0;
+        if (wetMass <= dryMass || totalFuelMass <= 0) return 0;
 
         const g = 9.81;
         return avgIsp * g * Math.log(wetMass / dryMass);

@@ -283,6 +283,7 @@
     width: 100%;
     height: 100%;
     transform-origin: center center;
+    transition: transform 0.3s ease-out;
 }
 
 /* 画布网格 */
@@ -294,6 +295,7 @@
     height: 100%;
     transform-origin: center center;
     pointer-events: none;
+    transition: transform 0.3s ease-out;
 }
 
 /* 主工作区样式 */
@@ -309,8 +311,28 @@
     bottom: 20px;
     left: 20px;
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 15px;
     z-index: 10;
+}
+
+.control-checkbox {
+    color: white;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 12px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.control-checkbox input[type="checkbox"] {
+    margin: 0;
+    accent-color: #4fc3f7;
 }
 
 .control-btn {
@@ -436,6 +458,40 @@
     z-index: 1000;
 }
 
+/* 连接点样式 */
+.attachment-point {
+    transition: all 0.2s ease;
+}
+
+.assembly-part:hover .attachment-point {
+    opacity: 1 !important;
+    transform: scale(1.2);
+}
+
+/* 显示连接点选项 */
+.show-attachment-points .attachment-point {
+    opacity: 1 !important;
+}
+
+/* 连接点高亮 */
+.attachment-point.highlight {
+    border-color: #ff6b00 !important;
+    background-color: rgba(255, 107, 0, 0.5) !important;
+    box-shadow: 0 0 10px rgba(255, 107, 0, 0.8);
+}
+
+/* 连接线 */
+.connection-line {
+    position: absolute;
+    height: 2px;
+    background: linear-gradient(90deg, #00ff00, #00aa00);
+    transform-origin: left center;
+    pointer-events: none;
+    z-index: 5;
+    border-radius: 1px;
+    box-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
+}
+
 /* 载具统计信息 */
 .rocket-stats {
     display: flex;
@@ -495,6 +551,96 @@
 .property-item span {
     color: white;
     font-weight: 500;
+}
+
+/* 燃料控制面板 */
+.fuel-controls {
+    margin: 15px 0;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.fuel-controls h5 {
+    color: #4fc3f7;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.fuel-type {
+    margin-bottom: 15px;
+}
+
+.fuel-type label {
+    display: block;
+    color: #b3c6f0;
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.fuel-type input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    margin-bottom: 5px;
+}
+
+.fuel-type input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #4fc3f7;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.fuel-type input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #4fc3f7;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.fuel-percentage {
+    text-align: right;
+    color: #4fc3f7;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.fuel-quick-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.fuel-action-btn {
+    flex: 1;
+    padding: 6px 12px;
+    background: rgba(79, 195, 247, 0.1);
+    border: 1px solid rgba(79, 195, 247, 0.3);
+    color: #4fc3f7;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 12px;
+}
+
+.fuel-action-btn:hover {
+    background: rgba(79, 195, 247, 0.2);
+    border-color: #4fc3f7;
+    color: white;
 }
 
 /* 移除部件按钮 */

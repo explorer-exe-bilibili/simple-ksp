@@ -9,6 +9,7 @@ class RocketBuilder {
         this.canvasZoom = 1.0;
         this.snapToGrid = true;
         this.gridSize = 20;
+        this.showAttachmentPoints = false; // 是否显示连接点
         
         this.init();
     }
@@ -23,8 +24,23 @@ class RocketBuilder {
 
         this.setupCanvas();
         this.setupEventListeners();
+        this.setupAttachmentPointsControl();
         this.loadPartsPanel();
         this.updateUI();
+    }
+
+    // 设置连接点控制
+    setupAttachmentPointsControl() {
+        const showAttachmentPointsCheckbox = document.getElementById('showAttachmentPointsCheckbox');
+        if (showAttachmentPointsCheckbox) {
+            showAttachmentPointsCheckbox.addEventListener('change', (e) => {
+                this.showAttachmentPoints = e.target.checked;
+                this.toggleAttachmentPointsVisibility();
+                if (typeof showNotification === 'function') {
+                    showNotification('连接点显示', `连接点显示已${this.showAttachmentPoints ? '开启' : '关闭'}`, 'info');
+                }
+            });
+        }
     }
 
     // 设置画布
@@ -125,34 +141,230 @@ class RocketBuilder {
         
         if (!this.draggedPart) return;
 
-        // 计算放置位置
+        // 保存鼠标位置，因为延迟调用时事件对象可能失效
         const canvasRect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - canvasRect.left;
-        const mouseY = e.clientY - canvasRect.top;
-        
-        // 考虑画布的变换：translate(offset) scale(zoom)
-        let x = (mouseX - this.canvasOffset.x) / this.canvasZoom;
-        let y = (mouseY - this.canvasOffset.y) / this.canvasZoom;
-        
-        // 让部件中心对准鼠标位置
-        const partWidth = this.draggedPart.dimensions.width * 40;
-        const partHeight = this.draggedPart.dimensions.height * 40;
-        x -= partWidth / 2;
-        y -= partHeight / 2;
-        
-        // 网格吸附
-        let position = { x, y };
-        if (this.snapToGrid) {
-            position.x = Math.round(position.x / this.gridSize) * this.gridSize;
-            position.y = Math.round(position.y / this.gridSize) * this.gridSize;
+        const mousePosition = {
+            x: e.clientX - canvasRect.left,
+            y: e.clientY - canvasRect.top
+        };
+
+        // 每次放置新部件时都重置视图到默认状态
+        if (this.canvasZoom !== 1.0 || this.canvasOffset.x !== 0 || this.canvasOffset.y !== 0) {
+            // 先重置视图
+            this.resetCanvasView();
+            
+            // 显示提示信息
+            if (typeof showNotification === 'function') {
+                const isFirstPart = this.assembly.getPartCount() === 0;
+                showNotification('视图重置', 
+                    isFirstPart ? '已重置画布缩放以便放置根部件' : '已重置画布缩放以便放置新部件', 'info');
+            }
+            
+            // 等待动画完成后再放置部件
+            setTimeout(() => {
+                this.placePartAtMousePosition(mousePosition);
+            }, 350); // 稍微超过CSS动画时间
+        } else {
+            // 直接放置部件
+            this.placePartAtMousePosition(mousePosition);
+        }
+    }
+
+    // 在指定位置放置部件的辅助函数
+    placePartAtPosition(e) {
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const mousePosition = {
+            x: e.clientX - canvasRect.left,
+            y: e.clientY - canvasRect.top
+        };
+        this.placePartAtMousePosition(mousePosition);
+    }
+
+    // 在鼠标位置放置部件
+    placePartAtMousePosition(mousePosition) {
+        if (!this.draggedPart) return;
+
+        let position;
+        let autoConnection = null;
+
+        console.log('开始放置部件:', this.draggedPart.name, '鼠标位置:', mousePosition);
+
+        // 如果是第一个部件（根部件），放置在画布中心
+        if (this.assembly.getPartCount() === 0) {
+            // 画布中心位置 (画布是800x600)
+            position = { x: 400, y: 300 };
+            
+            // 调整到部件的中心点
+            const partWidth = this.draggedPart.dimensions.width * 40;
+            const partHeight = this.draggedPart.dimensions.height * 40;
+            position.x -= partWidth / 2;
+            position.y -= partHeight / 2;
+            
+            // 网格吸附
+            if (this.snapToGrid) {
+                position.x = Math.round(position.x / this.gridSize) * this.gridSize;
+                position.y = Math.round(position.y / this.gridSize) * this.gridSize;
+            }
+
+            console.log('根部件放置位置:', position);
+
+            if (typeof showNotification === 'function') {
+                showNotification('根部件', '根部件已放置在中心位置，现在可以添加其他部件', 'info');
+            }
+        } else {
+            // 后续部件需要考虑连接点和当前的缩放/平移状态
+            // 应用逆变换得到实际坐标
+            let x = (mousePosition.x - this.canvasOffset.x) / this.canvasZoom;
+            let y = (mousePosition.y - this.canvasOffset.y) / this.canvasZoom;
+            
+            // 让部件中心对准鼠标位置
+            const partWidth = this.draggedPart.dimensions.width * 40;
+            const partHeight = this.draggedPart.dimensions.height * 40;
+            x -= partWidth / 2;
+            y -= partHeight / 2;
+            
+            // 网格吸附
+            position = { x, y };
+            if (this.snapToGrid) {
+                position.x = Math.round(position.x / this.gridSize) * this.gridSize;
+                position.y = Math.round(position.y / this.gridSize) * this.gridSize;
+            }
+
+            console.log('计算出的部件位置:', position);
+            console.log('当前画布状态 - 缩放:', this.canvasZoom, '偏移:', this.canvasOffset);
+
+            // 尝试自动连接到最近的兼容连接点
+            autoConnection = this.attemptAutoConnect(position, this.draggedPart);
+            if (autoConnection) {
+                // 如果找到了连接点，调整部件位置
+                console.log('自动连接成功，调整位置从', position, '到', autoConnection.adjustedPosition);
+                position = autoConnection.adjustedPosition;
+            } else {
+                console.log('未找到自动连接');
+            }
         }
 
         // 添加部件到组装中
+        console.log('最终部件位置:', position);
         const assemblyPart = this.assembly.addPart(this.draggedPart, position);
+        
+        // 如果有自动连接，创建连接记录
+        if (autoConnection) {
+            const connectionResult = this.assembly.connectParts(
+                autoConnection.existingPart.id, 
+                autoConnection.existingPoint,
+                assemblyPart.id, 
+                autoConnection.newPoint
+            );
+            console.log('创建连接记录结果:', connectionResult);
+            console.log('已创建连接记录:', autoConnection.existingPart.data.name, '<->', this.draggedPart.name);
+        }
+        
         this.addPartToCanvas(assemblyPart);
         this.updateUI();
+        this.updateConnectionLines(); // 更新连接线显示
         
         this.draggedPart = null;
+    }
+
+    // 尝试自动连接到最近的兼容连接点
+    attemptAutoConnect(newPartPosition, newPartData) {
+        if (this.assembly.parts.length === 0) return null; // 没有现有部件可连接
+        
+        const connectionRange = 120; // 连接检测范围（像素）
+        let bestConnection = null;
+        let minDistance = connectionRange;
+
+        console.log('=== 自动连接检测开始 ===');
+        console.log('新部件:', newPartData.name, '位置:', newPartPosition);
+        console.log('现有部件数量:', this.assembly.parts.length);
+        console.log('连接检测范围:', connectionRange, 'px');
+
+        // 遍历所有已存在的部件
+        this.assembly.parts.forEach(existingPart => {
+            console.log('\n检查现有部件:', existingPart.data.name, '位置:', existingPart.position);
+            
+            if (!existingPart.data.attachment_points) {
+                console.log('  - 该部件没有连接点');
+                return;
+            }
+
+            // 计算现有部件的连接点位置
+            Object.entries(existingPart.data.attachment_points).forEach(([pointName, pointData]) => {
+                // 现有部件的连接点在世界坐标系中的位置
+                const existingPartCenterX = existingPart.position.x + (existingPart.data.dimensions.width * 20);
+                const existingPartCenterY = existingPart.position.y + (existingPart.data.dimensions.height * 20);
+                const existingPointX = existingPartCenterX + (pointData.x * 40);
+                const existingPointY = existingPartCenterY + (pointData.y * 40);
+
+                console.log(`  现有连接点 ${pointName}: 中心(${existingPartCenterX}, ${existingPartCenterY}) + 偏移(${pointData.x * 40}, ${pointData.y * 40}) = (${existingPointX}, ${existingPointY})`);
+
+                // 检查新部件的连接点
+                if (newPartData.attachment_points) {
+                    Object.entries(newPartData.attachment_points).forEach(([newPointName, newPointData]) => {
+                        // 计算如果新部件放置在当前位置，其连接点的位置
+                        const newPartCenterX = newPartPosition.x + (newPartData.dimensions.width * 20);
+                        const newPartCenterY = newPartPosition.y + (newPartData.dimensions.height * 20);
+                        const newPointX = newPartCenterX + (newPointData.x * 40);
+                        const newPointY = newPartCenterY + (newPointData.y * 40);
+
+                        // 计算连接点之间的距离
+                        const distance = Math.sqrt(
+                            Math.pow(existingPointX - newPointX, 2) + 
+                            Math.pow(existingPointY - newPointY, 2)
+                        );
+
+                        console.log(`    新连接点 ${newPointName}: 中心(${newPartCenterX}, ${newPartCenterY}) + 偏移(${newPointData.x * 40}, ${newPointData.y * 40}) = (${newPointX}, ${newPointY})`);
+                        console.log(`    距离: ${distance.toFixed(2)}px (阈值: ${minDistance.toFixed(2)}px)`);
+
+                        if (distance < minDistance) {
+                            console.log(`    检查连接兼容性: ${pointData.size} vs ${newPointData.size}`);
+                            // 检查连接兼容性（简化版：相同尺寸可以连接）
+                            if (Math.abs(pointData.size - newPointData.size) < 0.1) {
+                                console.log('    ✓ 连接点兼容！');
+                                
+                                // 计算新部件应该放置的位置，使两个连接点重合
+                                const offsetX = existingPointX - newPointX;
+                                const offsetY = existingPointY - newPointY;
+                                
+                                const adjustedPosition = {
+                                    x: newPartPosition.x + offsetX,
+                                    y: newPartPosition.y + offsetY
+                                };
+
+                                console.log(`    调整偏移: (${offsetX.toFixed(2)}, ${offsetY.toFixed(2)})`);
+                                console.log('    调整后位置:', adjustedPosition);
+
+                                minDistance = distance;
+                                bestConnection = {
+                                    existingPart: existingPart,
+                                    existingPoint: pointName,
+                                    newPoint: newPointName,
+                                    distance: distance,
+                                    adjustedPosition: adjustedPosition
+                                };
+                            } else {
+                                console.log(`    ✗ 连接点尺寸不兼容: ${pointData.size} vs ${newPointData.size}`);
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        // 如果找到了好的连接点，显示提示
+        if (bestConnection) {
+            console.log('\n=== 自动连接成功！===');
+            console.log('最佳连接:', bestConnection);
+            if (typeof showNotification === 'function') {
+                showNotification('自动连接', 
+                    `部件已自动连接到 ${bestConnection.existingPart.data.name}`, 'success');
+            }
+        } else {
+            console.log('\n=== 未找到合适的连接点 ===');
+        }
+
+        return bestConnection;
     }
 
     // 添加部件到画布
@@ -175,6 +387,9 @@ class RocketBuilder {
             partElement.innerHTML = svg;
             partElement.querySelector('svg').style.width = '100%';
             partElement.querySelector('svg').style.height = '100%';
+            
+            // 添加连接点显示
+            this.addAttachmentPointsToElement(partElement, assemblyPart);
         });
 
         // 添加右键删除功能
@@ -187,6 +402,38 @@ class RocketBuilder {
         this.makePartDraggable(partElement, assemblyPart);
 
         rocketAssembly.appendChild(partElement);
+    }
+
+    // 为部件元素添加连接点显示
+    addAttachmentPointsToElement(partElement, assemblyPart) {
+        if (!assemblyPart.data.attachment_points) return;
+
+        const partWidth = assemblyPart.data.dimensions.width * 40;
+        const partHeight = assemblyPart.data.dimensions.height * 40;
+
+        Object.entries(assemblyPart.data.attachment_points).forEach(([pointName, pointData]) => {
+            const pointElement = document.createElement('div');
+            pointElement.className = 'attachment-point';
+            pointElement.dataset.pointName = pointName;
+            
+            // 计算连接点相对于部件中心的位置
+            const pointX = (partWidth / 2) + (pointData.x * 40);
+            const pointY = (partHeight / 2) + (pointData.y * 40);
+            
+            pointElement.style.position = 'absolute';
+            pointElement.style.left = `${pointX - 6}px`; // 减去一半的宽度来居中
+            pointElement.style.top = `${pointY - 6}px`;
+            pointElement.style.width = '12px';
+            pointElement.style.height = '12px';
+            pointElement.style.borderRadius = '50%';
+            pointElement.style.border = '2px solid #00ff00';
+            pointElement.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
+            pointElement.style.pointerEvents = 'none';
+            pointElement.style.zIndex = '1000';
+            pointElement.style.opacity = '0.7';
+            
+            partElement.appendChild(pointElement);
+        });
     }
 
     // 使部件可拖拽移动
@@ -209,7 +456,7 @@ class RocketBuilder {
             const mouseCanvasX = e.clientX - canvasRect.left;
             const mouseCanvasY = e.clientY - canvasRect.top;
             
-            // 计算拖拽偏移：鼠标在画布坐标系中的位置 - 部件在画布坐标系中的位置
+            // 计算部件在变换后的实际显示位置
             const partCanvasX = (assemblyPart.position.x * this.canvasZoom) + this.canvasOffset.x;
             const partCanvasY = (assemblyPart.position.y * this.canvasZoom) + this.canvasOffset.y;
             
@@ -234,10 +481,9 @@ class RocketBuilder {
             const mouseX = e.clientX - canvasRect.left;
             const mouseY = e.clientY - canvasRect.top;
             
-            // 考虑画布的变换：translate(offset) scale(zoom)
-            // 先减去偏移，再除以缩放，最后减去拖拽偏移
-            let newX = (mouseX - this.canvasOffset.x) / this.canvasZoom - dragOffset.x / this.canvasZoom;
-            let newY = (mouseY - this.canvasOffset.y) / this.canvasZoom - dragOffset.y / this.canvasZoom;
+            // 应用逆变换来计算新位置
+            let newX = (mouseX - this.canvasOffset.x - dragOffset.x) / this.canvasZoom;
+            let newY = (mouseY - this.canvasOffset.y - dragOffset.y) / this.canvasZoom;
 
             // 网格吸附
             if (this.snapToGrid) {
@@ -262,10 +508,21 @@ class RocketBuilder {
                 // 如果没有移动，则视为点击选择
                 if (!hasMoved) {
                     this.selectAssemblyPart(assemblyPart);
+                } else {
+                    // 如果移动了部件，检查是否有连接因距离过远而需要断开
+                    const brokenConnections = this.assembly.checkAndBreakInvalidConnections();
+                    if (brokenConnections.length > 0 && typeof showNotification === 'function') {
+                        showNotification('连接断开', 
+                            `${brokenConnections.length}个连接因距离过远而自动断开`, 'warning');
+                    }
+                    
+                    // 更新连接线显示
+                    this.updateConnectionLines();
                 }
                 
                 // 更新组装数据
                 this.assembly.modified = new Date();
+                this.updateUI();
             }
         };
 
@@ -306,6 +563,7 @@ class RocketBuilder {
         }
 
         this.updateUI();
+        this.updateConnectionLines(); // 更新连接线显示
     }
 
     // 更新部件信息面板
@@ -319,6 +577,49 @@ class RocketBuilder {
         }
 
         const part = this.selectedPart.data;
+        let fuelControlsHtml = '';
+        
+        // 如果是燃料罐，添加燃料控制界面
+        if (part.type === 'fuel-tank' && this.selectedPart.fuelStatus) {
+            const liquidFuelMax = part.fuel_capacity.liquid_fuel;
+            const oxidizerMax = part.fuel_capacity.oxidizer;
+            const currentLiquid = this.selectedPart.fuelStatus.liquid_fuel;
+            const currentOxidizer = this.selectedPart.fuelStatus.oxidizer;
+            
+            fuelControlsHtml = `
+                <div class="fuel-controls">
+                    <h5>燃料控制</h5>
+                    <div class="fuel-type">
+                        <label>液体燃料: ${currentLiquid.toFixed(1)} / ${liquidFuelMax} 单位</label>
+                        <input type="range" 
+                               id="liquidFuelSlider" 
+                               min="0" 
+                               max="${liquidFuelMax}" 
+                               step="0.1"
+                               value="${currentLiquid}"
+                               oninput="rocketBuilder.updateFuelAmount('liquid_fuel', this.value)">
+                        <div class="fuel-percentage">${((currentLiquid / liquidFuelMax) * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="fuel-type">
+                        <label>氧化剂: ${currentOxidizer.toFixed(1)} / ${oxidizerMax} 单位</label>
+                        <input type="range" 
+                               id="oxidizerSlider" 
+                               min="0" 
+                               max="${oxidizerMax}" 
+                               step="0.1"
+                               value="${currentOxidizer}"
+                               oninput="rocketBuilder.updateFuelAmount('oxidizer', this.value)">
+                        <div class="fuel-percentage">${((currentOxidizer / oxidizerMax) * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="fuel-quick-actions">
+                        <button onclick="rocketBuilder.setFuelLevel(1.0)" class="fuel-action-btn">满载</button>
+                        <button onclick="rocketBuilder.setFuelLevel(0.5)" class="fuel-action-btn">半载</button>
+                        <button onclick="rocketBuilder.setFuelLevel(0.0)" class="fuel-action-btn">空载</button>
+                    </div>
+                </div>
+            `;
+        }
+        
         infoPanel.innerHTML = `
             <div class="selected-part-details">
                 <h4>${part.name}</h4>
@@ -326,7 +627,7 @@ class RocketBuilder {
                 <div class="part-properties">
                     <div class="property-item">
                         <label>质量:</label>
-                        <span>${part.mass} t</span>
+                        <span>${this.getPartCurrentMass().toFixed(2)} t</span>
                     </div>
                     <div class="property-item">
                         <label>成本:</label>
@@ -353,6 +654,7 @@ class RocketBuilder {
                         <span>${part.dimensions.width}m × ${part.dimensions.height}m</span>
                     </div>
                 </div>
+                ${fuelControlsHtml}
                 <button class="remove-part-btn" onclick="rocketBuilder.removeAssemblyPart('${this.selectedPart.id}')">
                     移除此部件
                 </button>
@@ -372,31 +674,78 @@ class RocketBuilder {
         this.updatePartInfo();
     }
 
+    // 获取当前选中部件的实际质量（包含燃料）
+    getPartCurrentMass() {
+        if (!this.selectedPart) return 0;
+        
+        let mass = this.selectedPart.data.mass; // 干重
+        
+        // 如果是燃料罐，加上燃料质量
+        if (this.selectedPart.fuelStatus) {
+            // 假设燃料密度：液体燃料 0.005 t/单位，氧化剂 0.0055 t/单位
+            const fuelMass = (this.selectedPart.fuelStatus.liquid_fuel * 0.005) + 
+                           (this.selectedPart.fuelStatus.oxidizer * 0.0055);
+            mass += fuelMass;
+        }
+        
+        return mass;
+    }
+
+    // 更新燃料量
+    updateFuelAmount(fuelType, amount) {
+        if (!this.selectedPart || !this.selectedPart.fuelStatus) return;
+        
+        this.selectedPart.fuelStatus[fuelType] = parseFloat(amount);
+        this.assembly.modified = new Date();
+        
+        // 更新显示
+        this.updatePartInfo();
+        this.updateUI();
+    }
+
+    // 设置燃料级别（0.0 - 1.0）
+    setFuelLevel(ratio) {
+        if (!this.selectedPart || !this.selectedPart.fuelStatus) return;
+        
+        const part = this.selectedPart.data;
+        if (part.fuel_capacity) {
+            this.selectedPart.fuelStatus.liquid_fuel = part.fuel_capacity.liquid_fuel * ratio;
+            this.selectedPart.fuelStatus.oxidizer = part.fuel_capacity.oxidizer * ratio;
+            
+            this.assembly.modified = new Date();
+            
+            // 更新滑块和显示
+            const liquidSlider = document.getElementById('liquidFuelSlider');
+            const oxidizerSlider = document.getElementById('oxidizerSlider');
+            if (liquidSlider) liquidSlider.value = this.selectedPart.fuelStatus.liquid_fuel;
+            if (oxidizerSlider) oxidizerSlider.value = this.selectedPart.fuelStatus.oxidizer;
+            
+            this.updatePartInfo();
+            this.updateUI();
+        }
+    }
+
     // 处理画布缩放
     handleCanvasZoom(e) {
         if (!e.ctrlKey) return;
         
         e.preventDefault();
         
-        // 获取鼠标相对于画布容器的位置
-        const rect = this.canvas.parentElement.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        // 获取鼠标相对于画布的位置（与拖拽处理使用相同的坐标系）
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - canvasRect.left;
+        const mouseY = e.clientY - canvasRect.top;
         
-        // 计算缩放前鼠标在画布坐标系中的位置
+        // 计算缩放前鼠标在内容坐标系中的位置
         const beforeZoomX = (mouseX - this.canvasOffset.x) / this.canvasZoom;
         const beforeZoomY = (mouseY - this.canvasOffset.y) / this.canvasZoom;
         
         const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
         const newZoom = Math.max(0.3, Math.min(3.0, this.canvasZoom * zoomFactor));
         
-        // 计算缩放后鼠标在画布坐标系中应该在的位置
-        const afterZoomX = beforeZoomX * newZoom;
-        const afterZoomY = beforeZoomY * newZoom;
-        
-        // 调整偏移量，使鼠标位置保持不变
-        this.canvasOffset.x = mouseX - afterZoomX;
-        this.canvasOffset.y = mouseY - afterZoomY;
+        // 计算新的偏移量，使鼠标位置保持不变
+        this.canvasOffset.x = mouseX - beforeZoomX * newZoom;
+        this.canvasOffset.y = mouseY - beforeZoomY * newZoom;
         this.canvasZoom = newZoom;
         
         this.updateCanvasTransform();
@@ -540,7 +889,85 @@ class RocketBuilder {
             case 'r':
                 this.resetCanvasView();
                 break;
+            case 'a':
+                // 切换连接点显示
+                this.showAttachmentPoints = !this.showAttachmentPoints;
+                const checkbox = document.getElementById('showAttachmentPointsCheckbox');
+                if (checkbox) {
+                    checkbox.checked = this.showAttachmentPoints;
+                }
+                this.toggleAttachmentPointsVisibility();
+                if (typeof showNotification === 'function') {
+                    showNotification('连接点显示', `连接点显示已${this.showAttachmentPoints ? '开启' : '关闭'}`, 'info');
+                }
+                break;
         }
+    }
+
+    // 切换连接点可见性
+    toggleAttachmentPointsVisibility() {
+        const rocketAssembly = document.getElementById('rocketAssembly');
+        if (!rocketAssembly) return;
+
+        if (this.showAttachmentPoints) {
+            rocketAssembly.classList.add('show-attachment-points');
+        } else {
+            rocketAssembly.classList.remove('show-attachment-points');
+        }
+    }
+
+    // 显示连接线
+    updateConnectionLines() {
+        const rocketAssembly = document.getElementById('rocketAssembly');
+        if (!rocketAssembly) return;
+
+        // 移除现有的连接线
+        rocketAssembly.querySelectorAll('.connection-line').forEach(line => line.remove());
+
+        // 为每个连接创建连接线
+        this.assembly.connections.forEach(connection => {
+            const partA = this.assembly.parts.find(p => p.id === connection.partA);
+            const partB = this.assembly.parts.find(p => p.id === connection.partB);
+            
+            if (!partA || !partB) return;
+
+            // 计算连接点位置
+            const attachA = partA.data.attachment_points[connection.attachPointA];
+            const attachB = partB.data.attachment_points[connection.attachPointB];
+            
+            if (!attachA || !attachB) return;
+
+            // 计算部件A的连接点位置
+            const partACenterX = partA.position.x + (partA.data.dimensions.width * 20);
+            const partACenterY = partA.position.y + (partA.data.dimensions.height * 20);
+            const pointAX = partACenterX + (attachA.x * 40);
+            const pointAY = partACenterY + (attachA.y * 40);
+
+            // 计算部件B的连接点位置
+            const partBCenterX = partB.position.x + (partB.data.dimensions.width * 20);
+            const partBCenterY = partB.position.y + (partB.data.dimensions.height * 20);
+            const pointBX = partBCenterX + (attachB.x * 40);
+            const pointBY = partBCenterY + (attachB.y * 40);
+
+            // 创建连接线元素
+            const line = document.createElement('div');
+            line.className = 'connection-line';
+            line.dataset.connectionId = connection.id;
+            
+            // 计算线的长度和角度
+            const deltaX = pointBX - pointAX;
+            const deltaY = pointBY - pointAY;
+            const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
+            
+            // 设置线的位置和样式
+            line.style.left = `${pointAX}px`;
+            line.style.top = `${pointAY}px`;
+            line.style.width = `${length}px`;
+            line.style.transform = `rotate(${angle}deg)`;
+            
+            rocketAssembly.appendChild(line);
+        });
     }
 
     // 过滤部件
@@ -635,11 +1062,6 @@ function clearAssembly() {
     }
 }
 
-function undoLastAction() {
-    console.log('撤销功能开发中...');
-    // TODO: 实现撤销功能
-}
-
 function saveRocket() {
     if (window.rocketBuilder) {
         window.rocketBuilder.saveRocket();
@@ -660,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 添加欢迎提示
     setTimeout(() => {
         if (typeof showNotification === 'function') {
-            showNotification('装配大楼', '欢迎来到载具装配大楼！拖拽左侧部件开始设计。', 'welcome');
+            showNotification('装配大楼', '欢迎来到载具装配大楼！先选择一个根部件，然后逐步构建载具。', 'welcome');
         }
     }, 500);
 });

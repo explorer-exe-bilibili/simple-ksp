@@ -70,12 +70,10 @@
                         </svg>
                         清空
                     </button>
-                    <button class="control-btn" onclick="undoLastAction()">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" fill="currentColor"/>
-                        </svg>
-                        撤销
-                    </button>
+                    <label class="control-checkbox">
+                        <input type="checkbox" id="showAttachmentPointsCheckbox">
+                        显示连接点
+                    </label>
                 </div>
             </div>
 
@@ -113,13 +111,14 @@
                 <div class="panel-section">
                     <h4>操作提示</h4>
                     <div class="help-text">
-                        <p>• 从左侧拖拽部件到中央组装区</p>
+                        <p>• 首先拖拽一个部件作为根部件（自动居中）</p>
+                        <p>• 继续拖拽部件连接到已有部件</p>
                         <p>• 拖拽部件移动位置</p>
                         <p>• 拖拽空白区域移动视图</p>
                         <p>• 点击部件查看详细信息</p>
                         <p>• 右键删除部件</p>
                         <p>• Ctrl+滚轮缩放，双击重置视图</p>
-                        <p>• 按G切换网格吸附，R重置视图</p>
+                        <p>• 按G切换网格吸附，R重置视图，A切换连接点显示</p>
                     </div>
                 </div>
             </aside>
