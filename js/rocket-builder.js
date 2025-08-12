@@ -378,8 +378,26 @@ class RocketBuilder {
         
         e.preventDefault();
         
+        // 获取鼠标相对于画布容器的位置
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // 计算缩放前鼠标在画布坐标系中的位置
+        const beforeZoomX = (mouseX - this.canvasOffset.x) / this.canvasZoom;
+        const beforeZoomY = (mouseY - this.canvasOffset.y) / this.canvasZoom;
+        
         const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-        this.canvasZoom = Math.max(0.3, Math.min(3.0, this.canvasZoom * zoomFactor));
+        const newZoom = Math.max(0.3, Math.min(3.0, this.canvasZoom * zoomFactor));
+        
+        // 计算缩放后鼠标在画布坐标系中应该在的位置
+        const afterZoomX = beforeZoomX * newZoom;
+        const afterZoomY = beforeZoomY * newZoom;
+        
+        // 调整偏移量，使鼠标位置保持不变
+        this.canvasOffset.x = mouseX - afterZoomX;
+        this.canvasOffset.y = mouseY - afterZoomY;
+        this.canvasZoom = newZoom;
         
         this.updateCanvasTransform();
     }
@@ -448,6 +466,9 @@ class RocketBuilder {
 
     // 更新画布变换
     updateCanvasTransform() {
+        // 限制平移范围，防止画布完全移出视图
+        this.constrainCanvasOffset();
+        
         const rocketAssembly = document.getElementById('rocketAssembly');
         if (rocketAssembly) {
             rocketAssembly.style.transform = `translate(${this.canvasOffset.x}px, ${this.canvasOffset.y}px) scale(${this.canvasZoom})`;
@@ -458,6 +479,28 @@ class RocketBuilder {
         if (canvasGrid) {
             canvasGrid.style.transform = `translate(${this.canvasOffset.x}px, ${this.canvasOffset.y}px) scale(${this.canvasZoom})`;
         }
+    }
+
+    // 限制画布偏移范围
+    constrainCanvasOffset() {
+        const container = this.canvas.parentElement;
+        if (!container) return;
+        
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const canvasWidth = 800 * this.canvasZoom;  // 画布实际宽度 * 缩放比例
+        const canvasHeight = 600 * this.canvasZoom; // 画布实际高度 * 缩放比例
+        
+        // 计算最大允许的偏移量（保证至少有1/4的画布可见）
+        const minVisibleSize = 200; // 最小可见区域
+        const maxOffsetX = containerWidth - minVisibleSize;
+        const minOffsetX = -(canvasWidth - minVisibleSize);
+        const maxOffsetY = containerHeight - minVisibleSize;
+        const minOffsetY = -(canvasHeight - minVisibleSize);
+        
+        // 限制偏移范围
+        this.canvasOffset.x = Math.max(minOffsetX, Math.min(maxOffsetX, this.canvasOffset.x));
+        this.canvasOffset.y = Math.max(minOffsetY, Math.min(maxOffsetY, this.canvasOffset.y));
     }
 
     // 重置画布视图

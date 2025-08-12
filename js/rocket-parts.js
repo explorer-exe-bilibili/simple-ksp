@@ -52,6 +52,31 @@ class RocketParts {
                 gimbal_range: 4.0,
                 throttle_range: { min: 0.0, max: 1.0 }
             }
+        },
+        
+        // 新增燃料罐示例
+        'fl-t100-fuel-tank': {
+            id: 'fl-t100-fuel-tank',
+            name: 'FL-T100 燃料罐',
+            category: 'propulsion',
+            type: 'fuel-tank',
+            mass: 0.56, // 吨 (干重)
+            cost: 150,
+            fuel_capacity: {
+                liquid_fuel: 45, // 单位
+                oxidizer: 55 // 单位
+            },
+            dimensions: { width: 1.25, height: 1.1 },
+            attachment_points: {
+                top: { x: 0, y: -0.55, size: 1.25 },
+                bottom: { x: 0, y: 0.55, size: 1.25 }
+            },
+            svg_path: 'svg/fuel-tank.svg',
+            description: '小型液体燃料罐，适合轻型载具',
+            stats: {
+                max_temp: 2000,
+                impact_tolerance: 6
+            }
         }
     };
 
