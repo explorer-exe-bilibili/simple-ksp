@@ -1,38 +1,12 @@
-<!-- 指令舱 SVG -->
-<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
-  <!-- 舱体主体 -->
-  <defs>
-    <linearGradient id="commandPodGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#e8f4f8"/>
-      <stop offset="50%" style="stop-color:#d1e7dd"/>
-      <stop offset="100%" style="stop-color:#a3cfbb"/>
-    </linearGradient>
-    <radialGradient id="windowGradient" cx="50%" cy="30%" r="50%">
-      <stop offset="0%" style="stop-color:#87ceeb"/>
-      <stop offset="100%" style="stop-color:#4682b4"/>
-    </radialGradient>
-  </defs>
-  
-  <!-- 主舱体 -->
-  <ellipse cx="50" cy="60" rx="35" ry="45" fill="url(#commandPodGradient)" stroke="#2c5530" stroke-width="2"/>
-  
-  <!-- 顶部圆锥 -->
-  <path d="M50 15 L65 45 Q50 40 35 45 Z" fill="url(#commandPodGradient)" stroke="#2c5530" stroke-width="2"/>
-  
-  <!-- 观察窗 -->
-  <ellipse cx="50" cy="50" rx="15" ry="18" fill="url(#windowGradient)" stroke="#1e3a5f" stroke-width="1.5"/>
-  
-  <!-- 窗户反光效果 -->
-  <ellipse cx="45" cy="45" rx="6" ry="8" fill="rgba(255,255,255,0.3)"/>
-  
-  <!-- 底部连接环 -->
-  <rect x="35" y="90" width="30" height="8" rx="4" fill="#666" stroke="#444" stroke-width="1"/>
-  
-  <!-- 细节线条 -->
-  <line x1="25" y1="70" x2="75" y2="70" stroke="#2c5530" stroke-width="1" opacity="0.7"/>
-  <line x1="30" y1="80" x2="70" y2="80" stroke="#2c5530" stroke-width="1" opacity="0.7"/>
-  
-  <!-- 标识 -->
-  <circle cx="35" cy="35" r="3" fill="#ff4444" opacity="0.8"/>
-  <circle cx="65" cy="35" r="3" fill="#44ff44" opacity="0.8"/>
+<svg width="316" height="209" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <path id="svg_4" d="m-119.60719,87.23346l0.375,-1l1.25,0l0.375,1l-2,0z" stroke="#000" fill="#fff"/>
+  <path stroke-width="0" id="svg_8" d="m-0.00003,212.50001l58.50001,-213.00001l195.00004,0l58.49999,213.00001l-312.00004,0z" stroke="#000" fill="#333333"/>
+  <rect id="svg_13" height="1" width="0" y="305.66177" x="922.78676" stroke-width="0" stroke="#000" fill="#f00"/>
+  <rect id="svg_14" height="90" width="146" y="60.99999" x="83.00001" stroke-width="0" stroke="#000" fill="#bf1809"/>
+  <text xml:space="preserve" text-anchor="start" font-family="Noto Sans JP" font-size="24" id="svg_1" y="145.29412" x="130.34131" stroke-width="0" stroke="#000" fill="#000000">CMD</text>
+  <rect stroke="#000" id="svg_2" height="39" width="79" y="80.62246" x="116.49998" stroke-width="0" fill="#32a0d3"/>
+ </g>
+
 </svg>

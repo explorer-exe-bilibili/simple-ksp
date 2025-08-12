@@ -1,0 +1,31 @@
+<svg width="46" height="66" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <linearGradient id="fuelTankGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+   <stop offset="0%" stop-color="#37474f"/>
+   <stop offset="100%" stop-color="#546e7a"/>
+  </linearGradient>
+  <linearGradient id="fuelGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+   <stop offset="0%" stop-color="#4caf50"/>
+   <stop offset="100%" stop-color="#66bb6a"/>
+  </linearGradient>
+ </defs>
+ <!-- 燃料罐外壳 -->
+ <!-- 燃料液位 (根据燃料百分比调整height和y) -->
+ <!-- 刻度线 -->
+ <!-- 标签文字 -->
+ <!-- 燃料百分比 (默认90%) -->
+ <g>
+  <title>Layer 1</title>
+  <rect x="0.89544" y="0.89544" width="44" height="64" rx="6" ry="6" fill="url(#fuelTankGradient)" stroke="#546e7a" stroke-width="2" id="svg_1"/>
+  <rect stroke="#388e3c" x="4.89544" y="3.31588" width="36" height="57.57957" rx="4" ry="4" fill="url(#fuelGradient)" class="fuel-level" id="svg_2"/>
+  <g stroke="#78909c" id="svg_3">
+   <line x1="2.89544" y1="16.89544" x2="8.89544" y2="16.89544" id="svg_4"/>
+   <line x1="36.89544" y1="16.89544" x2="42.89544" y2="16.89544" id="svg_5"/>
+   <line x1="2.89544" y1="32.89544" x2="8.89544" y2="32.89544" id="svg_6"/>
+   <line x1="36.89544" y1="32.89544" x2="42.89544" y2="32.89544" id="svg_7"/>
+   <line x1="2.89544" y1="48.89544" x2="8.89544" y2="48.89544" id="svg_8"/>
+   <line x1="36.89544" y1="48.89544" x2="42.89544" y2="48.89544" id="svg_9"/>
+  </g>
+  <text transform="matrix(1 0 0 1 0 0)" x="23" y="36.0589" font-family="Arial, sans-serif" font-size="8" fill="#ffffff" text-anchor="middle" id="svg_10">FUEL</text>
+ </g>
+</svg>
