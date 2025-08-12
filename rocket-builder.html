@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>载具装配大楼 - KSP Web</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/rocket-builder.css">
+</head>
+<body>
+    <div class="starfield">
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+    </div>
+
+    <div class="builder-container">
+        <!-- 顶部工具栏 -->
+        <header class="builder-header">
+            <div class="header-left">
+                <button class="back-button" onclick="goBack()">
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/>
+                    </svg>
+                    返回主页
+                </button>
+                <h1 class="builder-title">载具装配大楼</h1>
+            </div>
+            <div class="header-right">
+                <button class="action-button save-button" onclick="saveRocket()">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" fill="currentColor"/>
+                    </svg>
+                    保存设计
+                </button>
+                <button class="action-button launch-button" onclick="launchRocket()">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/>
+                    </svg>
+                    发射
+                </button>
+            </div>
+        </header>
+
+        <!-- 主要工作区 -->
+        <main class="builder-workspace">
+            <!-- 左侧部件面板 -->
+            <aside class="parts-panel">
+                <div class="panel-header">
+                    <h3>部件库</h3>
+                    <div class="parts-filter">
+                        <button class="filter-btn active" data-category="all">全部</button>
+                        <button class="filter-btn" data-category="command">指令</button>
+                        <button class="filter-btn" data-category="propulsion">推进</button>
+                    </div>
+                </div>
+                <div class="parts-list" id="partsList">
+                    <!-- 部件将通过JavaScript动态加载 -->
+                </div>
+            </aside>
+
+            <!-- 中央装配区域 -->
+            <div class="assembly-area">
+                <div class="assembly-canvas" id="assemblyCanvas">
+                    <div class="canvas-grid"></div>
+                    <div class="rocket-assembly" id="rocketAssembly">
+                        <!-- 火箭组装区域 -->
+                    </div>
+                </div>
+                <div class="assembly-controls">
+                    <button class="control-btn" onclick="clearAssembly()">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/>
+                        </svg>
+                        清空
+                    </button>
+                    <button class="control-btn" onclick="undoLastAction()">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" fill="currentColor"/>
+                        </svg>
+                        撤销
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧信息面板 -->
+            <aside class="info-panel">
+                <div class="panel-section">
+                    <h4>载具信息</h4>
+                    <div class="rocket-stats" id="rocketStats">
+                        <div class="stat-item">
+                            <span class="stat-label">总质量:</span>
+                            <span class="stat-value" id="totalMass">0 t</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">部件数:</span>
+                            <span class="stat-value" id="partCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">推力:</span>
+                            <span class="stat-value" id="totalThrust">0 kN</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Delta-V:</span>
+                            <span class="stat-value" id="deltaV">0 m/s</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h4>选中部件</h4>
+                    <div class="selected-part-info" id="selectedPartInfo">
+                        <p class="no-selection">未选中任何部件</p>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h4>操作提示</h4>
+                    <div class="help-text">
+                        <p>• 从左侧拖拽部件到中央组装区</p>
+                        <p>• 拖拽部件移动位置</p>
+                        <p>• 拖拽空白区域移动视图</p>
+                        <p>• 点击部件查看详细信息</p>
+                        <p>• 右键删除部件</p>
+                        <p>• Ctrl+滚轮缩放，双击重置视图</p>
+                        <p>• 按G切换网格吸附，R重置视图</p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/rocket-parts.js"></script>
+    <script src="js/rocket-builder.js"></script>
+</body>
+</html>

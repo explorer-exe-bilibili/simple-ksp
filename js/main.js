@@ -15,9 +15,9 @@ function handleMenuClick(menuType) {
     switch(menuType) {
         case 'rocket-builder':
             showNotification('载具装配大楼', '准备进入装配模式...', 'rocket');
-            // TODO: 跳转到火箭建造页面
+            // 跳转到火箭建造页面
             setTimeout(() => {
-                alert('载具装配功能即将推出！');
+                window.location.href = 'rocket-builder.html';
             }, 1000);
             break;
             

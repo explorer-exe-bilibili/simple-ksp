@@ -1,0 +1,819 @@
+/* 载具装配大楼样式 */
+.builder-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+}
+
+/* 顶部工具栏 */
+.builder-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.back-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateX(-2px);
+}
+
+.back-button svg {
+    width: 20px;
+    height: 20px;
+}
+
+.builder-header h1 {
+    font-size: 1.8rem;
+    color: #4fc3f7;
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    gap: 10px;
+}
+
+.action-button {
+    padding: 10px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.action-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.action-button.primary {
+    background: linear-gradient(45deg, #4fc3f7, #29b6f6);
+    border-color: #4fc3f7;
+}
+
+.action-button.primary:hover {
+    background: linear-gradient(45deg, #29b6f6, #1976d2);
+    box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
+}
+
+/* 主工作区 */
+.builder-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* 左侧部件面板 */
+.parts-panel {
+    width: 250px;
+    background: rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    flex-direction: column;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.parts-panel h3 {
+    padding: 20px;
+    margin: 0;
+    color: #4fc3f7;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 1.2rem;
+}
+
+.parts-categories {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 5px;
+}
+
+.category {
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #b3c6f0;
+    font-size: 14px;
+}
+
+.category:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.category.active {
+    background: rgba(79, 195, 247, 0.2);
+    border-color: #4fc3f7;
+    color: #4fc3f7;
+}
+
+.parts-list {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.part-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: grab;
+    transition: all 0.3s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.part-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.part-item:active {
+    cursor: grabbing;
+}
+
+.part-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(79, 195, 247, 0.2);
+    border: 1px solid #4fc3f7;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.part-icon svg {
+    width: 24px;
+    height: 24px;
+    fill: #4fc3f7;
+}
+
+.part-info {
+    flex: 1;
+}
+
+.part-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 2px;
+}
+
+.part-stats {
+    font-size: 12px;
+    color: #b3c6f0;
+}
+
+/* 中央装配区 */
+.assembly-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.assembly-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.assembly-header h3 {
+    margin: 0;
+    color: #4fc3f7;
+    font-size: 1.2rem;
+}
+
+.assembly-canvas-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.assembly-canvas-container::after {
+    content: "按住 Ctrl + 滚轮缩放";
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #b3c6f0;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+#assemblyCanvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    cursor: crosshair;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#assemblyCanvas:active {
+    cursor: grabbing;
+}
+
+/* 画布平移时的样式 */
+#assemblyCanvas.panning {
+    cursor: grabbing !important;
+}
+
+/* 主工作区样式 */
+.builder-workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* 装配控制按钮 */
+.assembly-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+}
+
+.control-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.control-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* 面板通用样式 */
+.panel-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panel-header h3 {
+    margin: 0 0 10px 0;
+    color: #4fc3f7;
+    font-size: 1.2rem;
+}
+
+.panel-section {
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.panel-section h4 {
+    margin: 0 0 15px 0;
+    color: #4fc3f7;
+    font-size: 1rem;
+}
+
+/* 部件过滤按钮 */
+.parts-filter {
+    display: flex;
+    gap: 5px;
+}
+
+.filter-btn {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 12px;
+}
+
+.filter-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.filter-btn.active {
+    background: #4fc3f7;
+    border-color: #29b6f6;
+    color: white;
+}
+
+/* 火箭组装区域 */
+.rocket-assembly {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+}
+
+/* 网格画布样式 */
+.canvas-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(79, 195, 247, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79, 195, 247, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: 50% 50%;
+    pointer-events: none;
+    opacity: 0.3;
+}
+
+/* 组装部件样式 */
+.assembly-part {
+    transition: all 0.2s ease;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: pointer;
+}
+
+.assembly-part:hover {
+    filter: brightness(1.1);
+}
+
+.assembly-part.part-selected {
+    filter: drop-shadow(0 0 10px #4fc3f7) brightness(1.2);
+}
+
+/* 拖拽时的样式 */
+.assembly-part:active {
+    cursor: grabbing !important;
+}
+
+.assembly-part.dragging {
+    filter: drop-shadow(0 0 15px #4fc3f7) brightness(1.3);
+    transform: scale(1.05);
+    z-index: 1000;
+}
+
+/* 载具统计信息 */
+.rocket-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+
+.stat-label {
+    color: #b3c6f0;
+}
+
+.stat-value {
+    color: white;
+    font-weight: 600;
+}
+
+/* 选中部件信息 */
+.selected-part-details {
+    color: white;
+}
+
+.selected-part-details h4 {
+    color: #4fc3f7;
+    margin-bottom: 8px;
+}
+
+.part-description {
+    color: #b3c6f0;
+    font-size: 13px;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.part-properties {
+    margin-bottom: 15px;
+}
+
+.property-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.property-item label {
+    color: #b3c6f0;
+}
+
+.property-item span {
+    color: white;
+    font-weight: 500;
+}
+
+/* 移除部件按钮 */
+.remove-part-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(244, 67, 54, 0.2);
+    border: 1px solid rgba(244, 67, 54, 0.5);
+    color: #ff6b6b;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 13px;
+}
+
+.remove-part-btn:hover {
+    background: rgba(244, 67, 54, 0.3);
+    border-color: #f44336;
+    color: white;
+}
+
+/* 操作提示 */
+.help-text {
+    color: #b3c6f0;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.help-text p {
+    margin-bottom: 8px;
+}
+
+.no-selection {
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+/* 燃料调整滑块样式 */
+#fuelSlider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: linear-gradient(to right, #37474f 0%, #4caf50 100%);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#fuelSlider:hover {
+    transform: scaleY(1.2);
+}
+
+#fuelSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #4fc3f7;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+#fuelSlider::-webkit-slider-thumb:hover {
+    background: #29b6f6;
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(79, 195, 247, 0.4);
+}
+
+#fuelSlider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #4fc3f7;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+#fuelSlider::-moz-range-thumb:hover {
+    background: #29b6f6;
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(79, 195, 247, 0.4);
+}
+
+/* 燃料输入框样式 */
+#fuelInput {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #555;
+    color: white;
+    border-radius: 4px;
+    padding: 6px 8px;
+    text-align: center;
+    font-size: 12px;
+    width: 60px;
+    transition: all 0.3s ease;
+}
+
+#fuelInput:focus {
+    border-color: #4fc3f7;
+    box-shadow: 0 0 8px rgba(79, 195, 247, 0.3);
+    outline: none;
+}
+
+#fuelInput::-webkit-outer-spin-button,
+#fuelInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#fuelInput[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* 吸附控制开关样式 */
+.snap-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-right: 20px;
+    padding-right: 20px;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.snap-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.snap-toggle input[type="checkbox"] {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 32px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.snap-toggle input[type="checkbox"]:checked + .toggle-slider {
+    background: #4fc3f7;
+    border-color: #29b6f6;
+}
+
+.snap-toggle input[type="checkbox"]:checked + .toggle-slider::before {
+    transform: translateX(16px);
+}
+
+.snap-toggle:hover .toggle-slider {
+    box-shadow: 0 0 8px rgba(79, 195, 247, 0.3);
+}
+
+@media (max-width: 768px) {
+    .snap-controls {
+        flex-direction: column;
+        gap: 8px;
+        margin-right: 10px;
+        padding-right: 10px;
+    }
+    
+    .snap-toggle {
+        font-size: 10px;
+    }
+    
+    .toggle-slider {
+        width: 24px;
+        height: 12px;
+    }
+    
+    .toggle-slider::before {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .snap-toggle input[type="checkbox"]:checked + .toggle-slider::before {
+        transform: translateX(12px);
+    }
+}
+
+/* 视图控制按钮样式 */
+.view-controls {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    margin-right: 15px;
+}
+
+.view-button {
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.view-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #4fc3f7;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(79, 195, 247, 0.3);
+}
+
+.view-button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(79, 195, 247, 0.2);
+}
+
+@media (max-width: 768px) {
+    .view-controls {
+        margin-right: 10px;
+        gap: 3px;
+    }
+    
+    .view-button {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+    .parts-panel,
+    .info-panel {
+        width: 200px;
+    }
+    
+    .builder-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    .header-left,
+    .header-right {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .builder-main {
+        flex-direction: column;
+    }
+    
+    .parts-panel,
+    .info-panel {
+        width: 100%;
+        height: 200px;
+        border: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .assembly-area {
+        flex: 1;
+        min-height: 400px;
+    }
+    
+    .parts-categories {
+        flex-direction: row;
+        overflow-x: auto;
+    }
+    
+    .category {
+        white-space: nowrap;
+        min-width: 100px;
+    }
+}
+
+/* 拖拽效果 */
+.part-item.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg) scale(0.9);
+}
+
+.assembly-canvas-container.drag-over {
+    background: rgba(79, 195, 247, 0.1);
+}
+
+/* 部件在画布上的选中效果 */
+.part-selected {
+    filter: drop-shadow(0 0 10px #4fc3f7);
+}
+
+/* 滚动条样式 */
+.parts-list::-webkit-scrollbar,
+.selected-part-info::-webkit-scrollbar {
+    width: 6px;
+}
+
+.parts-list::-webkit-scrollbar-track,
+.selected-part-info::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.parts-list::-webkit-scrollbar-thumb,
+.selected-part-info::-webkit-scrollbar-thumb {
+    background: rgba(79, 195, 247, 0.5);
+    border-radius: 3px;
+}
+
+.parts-list::-webkit-scrollbar-thumb:hover,
+.selected-part-info::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 195, 247, 0.7);
+}
