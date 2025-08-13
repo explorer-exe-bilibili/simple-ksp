@@ -323,17 +323,10 @@ class RocketBuilder {
             y: e.clientY - canvasRect.top
         };
 
-        // 每次放置新部件时都重置视图到默认状态
-        if (this.canvasZoom !== 1.0 || this.canvasOffset.x !== 0 || this.canvasOffset.y !== 0) {
-            // 先重置视图
-            this.resetCanvasView();
-            
-            // 显示提示信息
-            if (typeof showNotification === 'function') {
-                const isFirstPart = this.assembly.getPartCount() === 0;
-                showNotification('视图重置', 
-                    isFirstPart ? '已重置画布缩放以便放置根部件' : '已重置画布缩放以便放置新部件', 'info');
-            }
+        // 每次放置新部件时只重置缩放（保持画布位置）
+        if (this.canvasZoom !== 1.0) {
+            // 只重置缩放
+            this.resetCanvasZoom();
             
             // 等待动画完成后再放置部件
             setTimeout(() => {
@@ -1210,6 +1203,17 @@ class RocketBuilder {
         }
     }
 
+    // 只重置画布缩放，保持位置不变
+    resetCanvasZoom() {
+        this.canvasZoom = 1.0;
+        this.updateCanvasTransform();
+        
+        // 显示提示
+        if (typeof showNotification === 'function') {
+            showNotification('缩放重置', '画布缩放已重置，位置保持不变', 'info');
+        }
+    }
+
     // 重置视图 - 提供给外部调用
     resetView() {
         this.resetCanvasView();
@@ -1614,8 +1618,8 @@ class RocketBuilder {
         // 添加部件到画布（这是关键！）
         this.addPartToCanvas(assemblyPart);
         
-        // 重置视图确保部件可见
-        this.resetCanvasView();
+        // 重置缩放确保部件可见（保持画布位置不变）
+        this.resetCanvasZoom();
         
         // 更新UI和连接线
         this.updateUI();
@@ -1754,20 +1758,64 @@ class RocketBuilder {
     // 发射火箭
     launchRocket() {
         if (this.assembly.getPartCount() === 0) {
-            alert('请先设计一个载具！');
+            if (typeof showNotification === 'function') {
+                showNotification('无法发射', '请先设计一个载具！', 'error');
+            } else {
+                alert('请先设计一个载具！');
+            }
             return;
         }
 
-        if (this.assembly.getTotalThrust() === 0) {
-            alert('载具需要至少一个引擎才能发射！');
+        const engines = this.assembly.parts.filter(p => p.data.type === 'engine');
+        if (engines.length === 0) {
+            if (typeof showNotification === 'function') {
+                showNotification('无法发射', '载具需要至少一个引擎才能发射！', 'error');
+            } else {
+                alert('载具需要至少一个引擎才能发射！');
+            }
             return;
         }
 
-        alert(`准备发射 "${this.assembly.name}"！\n\n` +
-              `总质量: ${this.assembly.getTotalMass().toFixed(2)} t\n` +
-              `推力: ${this.assembly.getTotalThrust().toFixed(1)} kN\n` +
-              `预估 Delta-V: ${this.assembly.estimateDeltaV().toFixed(0)} m/s\n\n` +
-              `发射功能开发中...`);
+        // 准备火箭数据
+        const rocketData = {
+            name: this.assembly.name,
+            parts: this.assembly.parts.map(part => ({
+                id: part.id,
+                data: part.data,
+                position: part.position,
+                fuelStatus: part.fuelStatus || null
+            })),
+            connections: this.assembly.connections,
+            rootPartId: this.assembly.rootPart ? this.assembly.rootPart.id : null,
+            totalMass: this.assembly.getTotalMass(),
+            totalThrust: this.assembly.getTotalThrust(),
+            estimatedDeltaV: this.assembly.estimateDeltaV(),
+            timestamp: new Date().toISOString()
+        };
+
+        try {
+            // 保存到localStorage
+            localStorage.setItem('launchRocket', JSON.stringify(rocketData));
+            
+            // 显示准备发射的信息
+            if (typeof showNotification === 'function') {
+                showNotification('准备发射', 
+                    `载具 "${this.assembly.name}" 已准备就绪！正在前往发射台...`, 'success');
+            }
+            
+            // 短暂延迟后跳转到发射页面
+            setTimeout(() => {
+                window.location.href = 'launch-pad.html';
+            }, 1500);
+            
+        } catch (error) {
+            console.error('保存火箭数据失败:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('保存失败', '无法保存火箭数据，请重试', 'error');
+            } else {
+                alert('保存火箭数据失败，请重试');
+            }
+        }
     }
 }
 
