@@ -820,6 +820,41 @@ class RocketBuilder {
             `;
         }
         
+        // 如果是分离器，添加分离控制界面
+        let decouplerControlsHtml = '';
+        if (part.type === 'decoupler' && part.decoupler_properties?.can_separate) {
+            const separationGroups = this.assembly.getDecouplerSeparationGroups(this.selectedPart.id);
+            if (separationGroups) {
+                decouplerControlsHtml = `
+                    <div class="decoupler-controls">
+                        <h5>分离器控制</h5>
+                        <div class="decoupler-info">
+                            <div class="property-item">
+                                <label>分离力:</label>
+                                <span>${part.separation_force || 2500} N</span>
+                            </div>
+                            <div class="property-item">
+                                <label>上级部件:</label>
+                                <span>${separationGroups.upperStage.length} 个</span>
+                            </div>
+                            <div class="property-item">
+                                <label>下级部件:</label>
+                                <span>${separationGroups.lowerStage.length} 个</span>
+                            </div>
+                        </div>
+                        <div class="decoupler-actions">
+                            <button onclick="rocketBuilder.testDecouplerSeparation('${this.selectedPart.id}')" class="decoupler-action-btn">
+                                测试分离
+                            </button>
+                            <button onclick="rocketBuilder.showStagingInfo()" class="decoupler-action-btn">
+                                分级信息
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
         infoPanel.innerHTML = `
             <div class="selected-part-details">
                 <h4>${part.name}</h4>
@@ -855,6 +890,7 @@ class RocketBuilder {
                     </div>
                 </div>
                 ${fuelControlsHtml}
+                ${decouplerControlsHtml}
                 <button class="remove-part-btn" onclick="rocketBuilder.removeAssemblyPart('${this.selectedPart.id}')">
                     移除此部件
                 </button>
@@ -1662,6 +1698,57 @@ class RocketBuilder {
         URL.revokeObjectURL(url);
 
         alert('设计已保存到下载文件夹');
+    }
+
+    // 测试分离器分离功能
+    testDecouplerSeparation(decouplerId) {
+        const result = this.assembly.activateDecoupler(decouplerId);
+        
+        if (result) {
+            const message = `分离器测试成功！\n\n` +
+                          `分离器: ${result.decoupler.data.name}\n` +
+                          `分离力: ${result.separationForce} N\n` +
+                          `断开连接数: ${result.brokenConnections.length}\n` +
+                          `上级部件: ${result.upperStage.length} 个\n` +
+                          `下级部件: ${result.lowerStage.length} 个\n\n` +
+                          `注意: 这只是测试，实际发射时分离器会在指定时机自动激活。`;
+            
+            alert(message);
+            
+            // 更新UI以反映断开的连接
+            this.updateConnectionLines();
+            this.updateUI();
+            
+            if (typeof showNotification === 'function') {
+                showNotification('分离器测试', `${result.decoupler.data.name} 分离测试完成`, 'success');
+            }
+        } else {
+            alert('分离器测试失败！请检查分离器是否正确连接。');
+        }
+    }
+
+    // 显示分级信息
+    showStagingInfo() {
+        const stagingInfo = this.assembly.getStagingInfo();
+        
+        if (stagingInfo.length === 0) {
+            alert('当前载具没有检测到分离器，无法进行分级。\n\n添加分离器部件可以创建多级火箭设计。');
+            return;
+        }
+
+        let infoMessage = '火箭分级信息:\n\n';
+        stagingInfo.forEach((stage, index) => {
+            infoMessage += `第 ${stage.stage} 级:\n`;
+            infoMessage += `  分离器: ${stage.decoupler.data.name}\n`;
+            infoMessage += `  部件数量: ${stage.partsCount}\n`;
+            infoMessage += `  总质量: ${stage.mass.toFixed(2)} t\n`;
+            infoMessage += `  预估ΔV: ${stage.deltaV.toFixed(0)} m/s\n\n`;
+        });
+
+        infoMessage += `总级数: ${stagingInfo.length}\n`;
+        infoMessage += `\n注意: 发射时分离器将按优先级顺序激活。`;
+
+        alert(infoMessage);
     }
 
     // 发射火箭

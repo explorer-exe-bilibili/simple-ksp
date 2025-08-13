@@ -689,6 +689,57 @@
     color: white;
 }
 
+/* 分离器控制 */
+.decoupler-controls {
+    margin-top: 15px;
+    padding: 12px;
+    border: 1px solid rgba(255, 165, 0, 0.3);
+    border-radius: 6px;
+    background: rgba(255, 165, 0, 0.05);
+}
+
+.decoupler-controls h5 {
+    margin: 0 0 10px 0;
+    color: #ffaa00;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.decoupler-info {
+    margin-bottom: 12px;
+}
+
+.decoupler-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.decoupler-action-btn {
+    flex: 1;
+    padding: 6px 12px;
+    background: rgba(255, 165, 0, 0.1);
+    border: 1px solid rgba(255, 165, 0, 0.3);
+    color: #ffaa00;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.decoupler-action-btn:hover {
+    background: rgba(255, 165, 0, 0.2);
+    border-color: #ffaa00;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(255, 165, 0, 0.3);
+}
+
+.decoupler-action-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(255, 165, 0, 0.3);
+}
+
 /* 移除部件按钮 */
 .remove-part-btn {
     width: 100%;

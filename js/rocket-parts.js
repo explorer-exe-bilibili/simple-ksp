@@ -39,7 +39,8 @@ class RocketParts {
             isp_atm: 300, // 秒
             dimensions: { width: 1.25, height: 1.0 },
             attachment_points: {
-                top: { x: 0, y: -0.5, size: 1.25 }
+                top: { x: 0, y: -0.5, size: 1.25 },
+                bottom: { x: 0, y: 0.5, size: 1.25 }
             },
             svg_path: 'svg/liquid-engine.svg',
             description: '高效真空引擎，适合上面级使用',
@@ -105,6 +106,36 @@ class RocketParts {
             stats: {
                 max_temp: 2000,
                 impact_tolerance: 6
+            }
+        },
+
+        // 结构部件 - 分离器/连接器
+        'td-12-decoupler': {
+            id: 'td-12-decoupler',
+            name: 'TD-12 分离连接器',
+            category: 'structural',
+            type: 'decoupler',
+            mass: 0.4, // 吨
+            cost: 400,
+            dimensions: { width: 1.25, height: 0.8 },
+            attachment_points: {
+                top: { x: 0, y: -0.4, size: 1.25 },
+                bottom: { x: 0, y: 0.4, size: 1.25 }
+            },
+            svg_path: 'svg/decoupler.svg',
+            description: '用于火箭分级的分离连接器。可在指定时机分离上下两级火箭，实现多级火箭设计。分离时会产生一定的分离力。',
+            separation_force: 2500, // 分离力 (牛顿)
+            stats: {
+                max_temp: 2000,
+                impact_tolerance: 9,
+                ejection_force: 25 // kN，分离时的推力
+            },
+            // 分离器特殊属性
+            decoupler_properties: {
+                can_separate: true, // 是否可以分离
+                separation_direction: 'both', // 分离方向: 'up', 'down', 'both'
+                staged: true, // 是否受分级控制
+                stage_priority: 1 // 分级优先级，数字越小越先执行
             }
         }
     };
@@ -600,6 +631,171 @@ class RocketAssembly {
         this.rootPart = data.rootPart || null;
         this.created = new Date(data.created) || new Date();
         this.modified = new Date(data.modified) || new Date();
+    }
+
+    // 获取所有分离器部件
+    getDecouplers() {
+        return this.parts.filter(part => 
+            part.data.type === 'decoupler' && 
+            part.data.decoupler_properties?.can_separate
+        );
+    }
+
+    // 检查部件是否在分离器上方
+    isPartAboveDecoupler(partId, decouplerId) {
+        const part = this.parts.find(p => p.id === partId);
+        const decoupler = this.parts.find(p => p.id === decouplerId);
+        
+        if (!part || !decoupler) return false;
+        
+        return part.position.y < decoupler.position.y;
+    }
+
+    // 获取分离器连接的上级和下级部件组
+    getDecouplerSeparationGroups(decouplerId) {
+        const decoupler = this.parts.find(p => p.id === decouplerId);
+        if (!decoupler || decoupler.data.type !== 'decoupler') return null;
+
+        // 获取分离器的连接
+        const decouplerConnections = this.connections.filter(conn => 
+            conn.partA === decouplerId || conn.partB === decouplerId
+        );
+
+        const upperParts = new Set();
+        const lowerParts = new Set();
+
+        // 遍历每个连接，确定上级和下级部件
+        decouplerConnections.forEach(connection => {
+            const otherPartId = connection.partA === decouplerId ? connection.partB : connection.partA;
+            const otherPart = this.parts.find(p => p.id === otherPartId);
+            
+            if (otherPart) {
+                if (this.isPartAboveDecoupler(otherPartId, decouplerId)) {
+                    upperParts.add(otherPartId);
+                    // 递归获取所有上级连接的部件
+                    this.getConnectedPartsRecursive(otherPartId, upperParts, [decouplerId]);
+                } else {
+                    lowerParts.add(otherPartId);
+                    // 递归获取所有下级连接的部件
+                    this.getConnectedPartsRecursive(otherPartId, lowerParts, [decouplerId]);
+                }
+            }
+        });
+
+        return {
+            decoupler: decoupler,
+            upperStage: Array.from(upperParts).map(id => this.parts.find(p => p.id === id)),
+            lowerStage: Array.from(lowerParts).map(id => this.parts.find(p => p.id === id))
+        };
+    }
+
+    // 递归获取连接的部件（排除特定部件）
+    getConnectedPartsRecursive(partId, resultSet, excludeIds = []) {
+        if (excludeIds.includes(partId)) return;
+
+        const directConnections = this.connections.filter(conn => 
+            (conn.partA === partId || conn.partB === partId) && 
+            !excludeIds.includes(conn.partA) && !excludeIds.includes(conn.partB)
+        );
+
+        directConnections.forEach(connection => {
+            const otherPartId = connection.partA === partId ? connection.partB : connection.partA;
+            
+            if (!resultSet.has(otherPartId) && !excludeIds.includes(otherPartId)) {
+                resultSet.add(otherPartId);
+                this.getConnectedPartsRecursive(otherPartId, resultSet, excludeIds);
+            }
+        });
+    }
+
+    // 模拟分离器激活（断开连接，但保留部件用于显示分离效果）
+    activateDecoupler(decouplerId) {
+        const separationGroups = this.getDecouplerSeparationGroups(decouplerId);
+        if (!separationGroups) return null;
+
+        // 断开分离器的所有连接
+        const decouplerConnections = this.connections.filter(conn => 
+            conn.partA === decouplerId || conn.partB === decouplerId
+        );
+
+        const brokenConnections = [];
+        decouplerConnections.forEach(connection => {
+            if (this.disconnectParts(connection.id)) {
+                brokenConnections.push(connection);
+            }
+        });
+
+        console.log(`分离器 ${separationGroups.decoupler.data.name} 已激活`);
+        console.log(`分离了 ${separationGroups.upperStage.length} 个上级部件和 ${separationGroups.lowerStage.length} 个下级部件`);
+        
+        return {
+            ...separationGroups,
+            brokenConnections: brokenConnections,
+            separationForce: separationGroups.decoupler.data.separation_force || 2500
+        };
+    }
+
+    // 获取火箭的分级信息
+    getStagingInfo() {
+        const decouplers = this.getDecouplers();
+        const stages = [];
+
+        // 按分级优先级排序
+        decouplers.sort((a, b) => {
+            const priorityA = a.data.decoupler_properties?.stage_priority || 999;
+            const priorityB = b.data.decoupler_properties?.stage_priority || 999;
+            return priorityA - priorityB;
+        });
+
+        decouplers.forEach((decoupler, index) => {
+            const groups = this.getDecouplerSeparationGroups(decoupler.id);
+            if (groups) {
+                stages.push({
+                    stage: index + 1,
+                    decoupler: groups.decoupler,
+                    partsCount: groups.upperStage.length + groups.lowerStage.length + 1,
+                    mass: this.calculateStageMass(groups),
+                    deltaV: this.calculateStageDeltaV(groups)
+                });
+            }
+        });
+
+        return stages;
+    }
+
+    // 计算单级质量
+    calculateStageMass(stageGroups) {
+        let totalMass = 0;
+        const allParts = [...stageGroups.upperStage, ...stageGroups.lowerStage, stageGroups.decoupler];
+        
+        allParts.forEach(part => {
+            totalMass += part.data.mass;
+            // 添加燃料质量
+            if (part.fuelStatus) {
+                totalMass += (part.fuelStatus.liquid_fuel * 0.005) + 
+                           (part.fuelStatus.oxidizer * 0.0055);
+            }
+        });
+
+        return totalMass;
+    }
+
+    // 计算单级Delta-V
+    calculateStageDeltaV(stageGroups) {
+        // 简化计算：假设主要推力来自下级
+        const engines = stageGroups.lowerStage.filter(part => part.data.type === 'engine');
+        if (engines.length === 0) return 0;
+
+        const totalThrust = engines.reduce((sum, engine) => sum + (engine.data.thrust || 0), 0);
+        const avgIsp = engines.reduce((sum, engine) => sum + (engine.data.isp_vacuum || 300), 0) / engines.length;
+
+        const wetMass = this.calculateStageMass(stageGroups);
+        const dryMass = wetMass * 0.3; // 简化：假设燃料质量占70%
+
+        if (wetMass <= dryMass) return 0;
+
+        const g = 9.81;
+        return avgIsp * g * Math.log(wetMass / dryMass);
     }
 
     // 清空组装

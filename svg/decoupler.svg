@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 125 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 金属渐变 -->
+    <linearGradient id="metalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e0e0e0;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#c0c0c0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a0a0a0;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 分离线渐变 -->
+    <linearGradient id="separatorGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff4444;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ff6666;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff4444;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 连接器主体上半部分 -->
+  <rect x="20" y="20" width="85" height="25" rx="3" ry="3" 
+        fill="url(#metalGradient)" stroke="#999" stroke-width="1"/>
+  
+  <!-- 分离线 -->
+  <rect x="15" y="45" width="95" height="4" rx="2" ry="2" 
+        fill="url(#separatorGradient)" stroke="#cc0000" stroke-width="1"/>
+  
+  <!-- 连接器主体下半部分 -->
+  <rect x="20" y="53" width="85" height="25" rx="3" ry="3" 
+        fill="url(#metalGradient)" stroke="#999" stroke-width="1"/>
+  
+  <!-- 左侧锁定机构 -->
+  <circle cx="30" cy="32" r="4" fill="#666" stroke="#333" stroke-width="1"/>
+  <circle cx="30" cy="66" r="4" fill="#666" stroke="#333" stroke-width="1"/>
+  
+  <!-- 右侧锁定机构 -->
+  <circle cx="95" cy="32" r="4" fill="#666" stroke="#333" stroke-width="1"/>
+  <circle cx="95" cy="66" r="4" fill="#666" stroke="#333" stroke-width="1"/>
+  
+  <!-- 中央分离指示器 -->
+  <polygon points="62.5,42 67.5,47 62.5,52 57.5,47" 
+           fill="#ffaa00" stroke="#ff8800" stroke-width="1"/>
+  
+  <!-- 螺栓细节 -->
+  <circle cx="45" cy="28" r="1.5" fill="#555"/>
+  <circle cx="55" cy="28" r="1.5" fill="#555"/>
+  <circle cx="65" cy="28" r="1.5" fill="#555"/>
+  <circle cx="75" cy="28" r="1.5" fill="#555"/>
+  
+  <circle cx="45" cy="70" r="1.5" fill="#555"/>
+  <circle cx="55" cy="70" r="1.5" fill="#555"/>
+  <circle cx="65" cy="70" r="1.5" fill="#555"/>
+  <circle cx="75" cy="70" r="1.5" fill="#555"/>
+  
+  <!-- 标识文字 -->
+  <text x="62.5" y="90" text-anchor="middle" fill="#666" 
+        font-family="Arial, sans-serif" font-size="8" font-weight="bold">
+    DECOUPLER
+  </text>
+</svg>

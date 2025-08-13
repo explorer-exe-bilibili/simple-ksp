@@ -36,14 +36,18 @@
   <!-- 引擎喷嘴 -->
   <path d="M35 75 L40 95 L60 95 L65 75 Z" fill="url(#nozzleGradient)" stroke="#3d2914" stroke-width="2"/>
   
+  <!-- 底部连接环 -->
+  <rect x="30" y="95" width="40" height="8" rx="4" fill="#666" stroke="#444" stroke-width="1"/>
+  <rect x="35" y="97" width="30" height="4" rx="2" fill="#999"/>
+  
   <!-- 内部喷嘴 -->
   <path d="M42 80 L45 90 L55 90 L58 80 Z" fill="#2a1a0d"/>
   
   <!-- 引擎火焰效果 (可选显示) -->
   <g class="flame-effect" style="opacity: 0;">
-    <ellipse cx="50" cy="105" rx="12" ry="20" fill="url(#flameGradient)"/>
-    <ellipse cx="50" cy="115" rx="8" ry="15" fill="#ffaa44" opacity="0.8"/>
-    <ellipse cx="50" cy="120" rx="5" ry="10" fill="#ffff88" opacity="0.6"/>
+    <ellipse cx="50" cy="115" rx="12" ry="20" fill="url(#flameGradient)"/>
+    <ellipse cx="50" cy="125" rx="8" ry="15" fill="#ffaa44" opacity="0.8"/>
+    <ellipse cx="50" cy="130" rx="5" ry="10" fill="#ffff88" opacity="0.6"/>
   </g>
   
   <!-- 管道连接 -->
