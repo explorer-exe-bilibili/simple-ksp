@@ -14,7 +14,7 @@ function handleMenuClick(menuType) {
     // 根据菜单类型处理不同逻辑
     switch(menuType) {
         case 'rocket-builder':
-            showNotification('载具装配大楼', '准备进入装配模式...', 'rocket');
+            showNotification('main.rocketBuilder.title', 'rocketBuilder.notifications.launched', 'rocket');
             // 跳转到火箭建造页面
             setTimeout(() => {
                 window.location.href = 'rocket-builder.html';
@@ -22,10 +22,11 @@ function handleMenuClick(menuType) {
             break;
             
         case 'tracking-station':
-            showNotification('追踪站', '正在连接追踪系统...', 'tracking');
+            showNotification('main.trackingStation.title', 'main.comingSoon', 'tracking');
             // TODO: 跳转到追踪站页面
             setTimeout(() => {
-                alert('追踪站功能即将推出！');
+                const message = window.i18n ? window.i18n.t('main.comingSoon') : '即将推出！';
+                alert(message);
             }, 1000);
             break;
             
@@ -35,7 +36,11 @@ function handleMenuClick(menuType) {
 }
 
 // 显示通知函数
-function showNotification(title, message, type) {
+function showNotification(titleKey, messageKey, type) {
+    // 获取翻译文本
+    const title = window.i18n ? window.i18n.t(titleKey) : titleKey;
+    const message = window.i18n ? window.i18n.t(messageKey) : messageKey;
+    
     // 创建通知元素
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
@@ -144,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 显示欢迎信息
     setTimeout(() => {
-        showNotification('欢迎来到 KSP Web', '探索浩瀚宇宙的旅程即将开始！', 'welcome');
+        showNotification('notifications.welcome.title', 'notifications.welcome.message', 'welcome');
     }, 500);
 });
 

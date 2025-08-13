@@ -4,6 +4,7 @@ class RocketParts {
         // 指令舱类部件
         'command-pod-mk1': {
             id: 'command-pod-mk1',
+            nameKey: 'parts.commandPod.name',
             name: 'Mk1 指令舱',
             category: 'command',
             type: 'command',
@@ -16,6 +17,7 @@ class RocketParts {
                 bottom: { x: 0, y: 0.75, size: 1.25 }
             },
             svg_path: 'svg/command-pod.svg',
+            descriptionKey: 'parts.commandPod.description',
             description: '单人指令舱，用于控制载具',
             stats: {
                 electric_capacity: 150,
@@ -28,6 +30,7 @@ class RocketParts {
         // 液体燃料引擎
         'lv-909-engine': {
             id: 'lv-909-engine',
+            nameKey: 'parts.liquidEngine909.name',
             name: 'LV-909 液体燃料引擎',
             category: 'propulsion',
             type: 'engine',
@@ -43,6 +46,7 @@ class RocketParts {
                 bottom: { x: 0, y: 0.5, size: 1.25 }
             },
             svg_path: 'svg/liquid-engine.svg',
+            descriptionKey: 'parts.liquidEngine909.description',
             description: '高效真空引擎，适合上面级使用',
             fuel_consumption: {
                 liquid_fuel: 2.8, // 单位/秒
@@ -58,6 +62,7 @@ class RocketParts {
         // 新增燃料罐示例
         'fl-t100-fuel-tank': {
             id: 'fl-t100-fuel-tank',
+            nameKey: 'parts.fuelTankSmall.name',
             name: 'FL-T100 燃料罐',
             category: 'propulsion',
             type: 'fuel-tank',
@@ -75,6 +80,7 @@ class RocketParts {
                 right: { x: 0.625, y: 0, size: 0.625 }
             },
             svg_path: 'svg/fuel-tank.svg',
+            descriptionKey: 'parts.fuelTankSmall.description',
             description: '小型液体燃料罐，适合轻型载具。支持顶部、底部和侧面连接。',
             stats: {
                 max_temp: 2000,
@@ -85,6 +91,7 @@ class RocketParts {
         // 大型燃料罐
         'fl-t400-fuel-tank': {
             id: 'fl-t400-fuel-tank',
+            nameKey: 'parts.fuelTankMedium.name',
             name: 'FL-T400 燃料罐',
             category: 'propulsion',
             type: 'fuel-tank',
@@ -102,6 +109,7 @@ class RocketParts {
                 right: { x: 0.625, y: 0, size: 0.625 }
             },
             svg_path: 'svg/fl-t400-fuel-tank.svg',
+            descriptionKey: 'parts.fuelTankMedium.description',
             description: '大型液体燃料罐，提供充足的燃料储存。支持顶部、底部和侧面连接。',
             stats: {
                 max_temp: 2000,
@@ -112,6 +120,7 @@ class RocketParts {
         // 结构部件 - 分离器/连接器
         'td-12-decoupler': {
             id: 'td-12-decoupler',
+            nameKey: 'parts.decoupler.name',
             name: 'TD-12 分离连接器',
             category: 'structural',
             type: 'decoupler',
@@ -123,6 +132,7 @@ class RocketParts {
                 bottom: { x: 0, y: 0.4, size: 1.25 }
             },
             svg_path: 'svg/decoupler.svg',
+            descriptionKey: 'parts.decoupler.description',
             description: '用于火箭分级的分离连接器。可在指定时机分离上下两级火箭，实现多级火箭设计。分离时会产生一定的分离力。',
             separation_force: 2500, // 分离力 (牛顿)
             stats: {
@@ -140,8 +150,24 @@ class RocketParts {
         }
     };
 
+    // 更新部件的本地化文本
+    static updateLocalizedTexts() {
+        if (!window.i18n) return;
+        
+        for (const partId in this.parts) {
+            const part = this.parts[partId];
+            if (part.nameKey) {
+                part.name = window.i18n.t(part.nameKey);
+            }
+            if (part.descriptionKey) {
+                part.description = window.i18n.t(part.descriptionKey);
+            }
+        }
+    }
+
     // 获取所有部件
     static getAllParts() {
+        this.updateLocalizedTexts(); // 确保文本是最新的
         return Object.values(this.parts);
     }
 
@@ -261,9 +287,14 @@ class RocketAssembly {
         this.parts = []; // 已组装的部件
         this.connections = []; // 连接关系
         this.rootPart = null; // 根部件
-        this.name = '未命名载具';
+        this.name = this.getDefaultVehicleName();
         this.created = new Date();
         this.modified = new Date();
+    }
+
+    // 获取默认载具名称
+    getDefaultVehicleName() {
+        return window.i18n ? window.i18n.t('rocketBuilder.infoPanel.unnamed') : '未命名载具';
     }
 
     // 添加部件到组装中
@@ -625,7 +656,7 @@ class RocketAssembly {
 
     // 从JSON导入
     fromJSON(data) {
-        this.name = data.name || '未命名载具';
+        this.name = data.name || (window.i18n ? i18n.t('vehicle.unnamedVehicle') : '未命名载具');
         this.parts = data.parts || [];
         this.connections = data.connections || [];
         this.rootPart = data.rootPart || null;

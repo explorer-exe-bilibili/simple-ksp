@@ -26,7 +26,7 @@ class LaunchPad {
         try {
             const savedRocket = localStorage.getItem('launchRocket');
             if (!savedRocket) {
-                this.showError('没有找到火箭数据，请先在装配厂创建火箭');
+                this.showError(window.i18n ? window.i18n.t('errors.noRocketData') : '没有找到火箭数据，请先在装配厂创建火箭');
                 return;
             }
 
@@ -35,7 +35,7 @@ class LaunchPad {
 
             // 重建火箭装配
             this.assembly = new RocketAssembly();
-            this.assembly.name = this.rocketData.name || '未命名载具';
+            this.assembly.name = this.rocketData.name || (window.i18n ? window.i18n.t('rocketBuilder.infoPanel.unnamed') : '未命名载具');
             
             // 重建部件和连接
             if (this.rocketData.parts && this.rocketData.parts.length > 0) {
@@ -44,12 +44,15 @@ class LaunchPad {
                 this.updateFlightData();
                 this.updateStagingInfo();
             } else {
-                this.showError('火箭数据无效，请重新加载');
+                this.showError(window.i18n ? window.i18n.t('errors.invalidRocketData') : '火箭数据无效，请重新加载');
             }
 
         } catch (error) {
             console.error('加载火箭数据失败:', error);
-            this.showError('加载火箭数据失败: ' + error.message);
+            const errorMessage = window.i18n ? 
+                window.i18n.t('errors.loadRocketDataFailed') + ': ' + error.message : 
+                (window.i18n ? window.i18n.t('errors.loadRocketDataFailed') : '加载火箭数据失败') + ': ' + error.message;
+            this.showError(errorMessage);
         }
     }
 
@@ -79,8 +82,15 @@ class LaunchPad {
         }
 
         // 设置根部件
-        if (this.rocketData.rootPartId) {
-            this.assembly.rootPart = this.assembly.parts.find(p => p.id === this.rocketData.rootPartId);
+        if (this.rocketData.rootPart) {
+            this.assembly.rootPart = this.rocketData.rootPart;
+            console.log('设置根部件:', this.assembly.rootPart);
+        } else {
+            // 如果没有明确的根部件，使用第一个部件
+            if (this.assembly.parts.length > 0) {
+                this.assembly.rootPart = this.assembly.parts[0].id;
+                console.log('使用第一个部件作为根部件:', this.assembly.rootPart);
+            }
         }
 
         console.log('火箭重建完成，部件数量:', this.assembly.parts.length);
@@ -113,8 +123,15 @@ class LaunchPad {
         rocketContainer.style.position = 'relative';
         rocketContainer.style.transform = `scale(${scale})`;
         
-        // 渲染所有部件
-        this.assembly.parts.forEach(part => {
+        // 渲染只与根部件连通的部件
+        const connectedPartIds = this.assembly.getConnectedParts();
+        const connectedParts = this.assembly.parts.filter(part => 
+            connectedPartIds.includes(part.id)
+        );
+        
+        console.log(`总部件数: ${this.assembly.parts.length}, 连通部件数: ${connectedParts.length}`);
+        
+        connectedParts.forEach(part => {
             this.renderRocketPart(rocketContainer, part, bounds, scale);
         });
 
@@ -123,12 +140,18 @@ class LaunchPad {
 
     // 计算火箭边界
     calculateRocketBounds() {
-        if (this.assembly.parts.length === 0) return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+        // 只计算与根部件连通的部件边界
+        const connectedPartIds = this.assembly.getConnectedParts();
+        const connectedParts = this.assembly.parts.filter(part => 
+            connectedPartIds.includes(part.id)
+        );
+        
+        if (connectedParts.length === 0) return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
         let minX = Infinity, maxX = -Infinity;
         let minY = Infinity, maxY = -Infinity;
 
-        this.assembly.parts.forEach(part => {
+        connectedParts.forEach(part => {
             const partWidth = part.data.dimensions.width * 40;
             const partHeight = part.data.dimensions.height * 40;
             
@@ -205,21 +228,27 @@ class LaunchPad {
 
     // 更新飞行数据显示
     updateFlightData() {
-        const totalMass = this.assembly.getTotalMass();
+        // 使用连通部件的数据
+        const totalMass = this.assembly.getConnectedMass();
         const stagingInfo = this.assembly.getStagingInfo();
         const totalDeltaV = stagingInfo.reduce((sum, stage) => sum + stage.deltaV, 0);
         
-        // 计算推重比
-        const engines = this.assembly.parts.filter(p => p.data.type === 'engine');
-        const totalThrust = engines.reduce((sum, engine) => sum + (engine.data.thrust || 0), 0);
+        // 计算推重比（只考虑连通的引擎）
+        const connectedPartIds = this.assembly.getConnectedParts();
+        const connectedEngines = this.assembly.parts.filter(p => 
+            p.data.type === 'engine' && connectedPartIds.includes(p.id)
+        );
+        const totalThrust = connectedEngines.reduce((sum, engine) => sum + (engine.data.thrust || 0), 0);
         const twr = totalMass > 0 ? (totalThrust / (totalMass * 9.81)) : 0;
 
-        // 计算总燃料量
-        const fuelTanks = this.assembly.parts.filter(p => p.data.fuel_capacity);
+        // 计算连通燃料罐的燃料量
+        const connectedFuelTanks = this.assembly.parts.filter(p => 
+            p.data.fuel_capacity && connectedPartIds.includes(p.id)
+        );
         let totalLiquidFuel = 0;
         let totalOxidizer = 0;
         
-        fuelTanks.forEach(tank => {
+        connectedFuelTanks.forEach(tank => {
             if (tank.fuelStatus) {
                 totalLiquidFuel += tank.fuelStatus.liquid_fuel || 0;
                 totalOxidizer += tank.fuelStatus.oxidizer || 0;
@@ -242,7 +271,8 @@ class LaunchPad {
             document.getElementById('oxidizer').textContent = totalOxidizer.toFixed(1);
         }
         
-        console.log(`燃料状态 - 液体燃料: ${totalLiquidFuel.toFixed(1)}, 氧化剂: ${totalOxidizer.toFixed(1)}, 燃料罐数量: ${fuelTanks.length}`);
+        console.log(`连通燃料状态 - 液体燃料: ${totalLiquidFuel.toFixed(1)}, 氧化剂: ${totalOxidizer.toFixed(1)}, 连通燃料罐数量: ${connectedFuelTanks.length}`);
+        console.log(`连通部件统计 - 总部件: ${this.assembly.parts.length}, 连通部件: ${connectedPartIds.length}, 连通引擎: ${connectedEngines.length}`);
     }
 
     // 更新分级信息
@@ -256,7 +286,7 @@ class LaunchPad {
         console.log('发射台分级信息:', stagingInfo);
 
         if (stagingInfo.length === 0) {
-            stageList.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">单级火箭<br>无分级信息</div>';
+            stageList.innerHTML = `<div style="color: #999; text-align: center; padding: 20px;">${window.i18n ? window.i18n.t('launchPad.singleStage') : '单级火箭'}<br>${window.i18n ? window.i18n.t('launchPad.noStagingInfo') : '无分级信息'}</div>`;
             return;
         }
 
@@ -293,16 +323,18 @@ class LaunchPad {
             
             stageElement.innerHTML = `
                 <div class="stage-header">
-                    <span>第 ${stage.stage} 级</span>
-                    <span>${stage.partsCount} 部件</span>
+                    <span>${window.i18n ? window.i18n.t('launchPad.stage') : '第'} ${stage.stage} ${window.i18n ? window.i18n.t('launchPad.stageUnit') : '级'}</span>
+                    <span>${stage.partsCount} ${window.i18n ? window.i18n.t('launchPad.parts') : '部件'}</span>
                 </div>
                 <div class="stage-info">
-                    <span>质量: ${stage.mass.toFixed(1)}t</span>
+                    <span>${window.i18n ? window.i18n.t('launchPad.mass') : '质量'}: ${stage.mass.toFixed(1)}t</span>
                     <span>ΔV: ${stage.deltaV.toFixed(0)}m/s</span>
                 </div>
                 <div class="stage-engines">
-                    <span>引擎: ${engineCount}</span>
-                    <span>${stage.decoupler ? '有分离器' : '无分离器'}</span>
+                    <span>${window.i18n ? window.i18n.t('launchPad.engines') : '引擎'}: ${engineCount}</span>
+                    <span>${stage.decoupler ? 
+                        (window.i18n ? window.i18n.t('launchPad.withDecoupler') : '有分离器') : 
+                        (window.i18n ? window.i18n.t('launchPad.withoutDecoupler') : '无分离器')}</span>
                 </div>
             `;
             
@@ -333,11 +365,11 @@ class LaunchPad {
         if (launchBtn) {
             launchBtn.disabled = this.isLaunched || this.countdown >= 0;
             if (this.countdown >= 0) {
-                launchBtn.textContent = '倒计时中...';
+                launchBtn.textContent = window.i18n ? window.i18n.t('launchPad.countdownInProgress') : '倒计时中...';
             } else if (this.isLaunched) {
-                launchBtn.textContent = '已发射';
+                launchBtn.textContent = window.i18n ? window.i18n.t('launchPad.launched') : '已发射';
             } else {
-                launchBtn.textContent = '点火发射';
+                launchBtn.textContent = window.i18n ? window.i18n.t('launchPad.igniteAndLaunch') : '点火发射';
             }
         }
 
@@ -358,7 +390,7 @@ class LaunchPad {
         const countdownText = document.getElementById('countdownText');
         const countdownNumber = document.getElementById('countdownNumber');
 
-        if (countdownText) countdownText.textContent = '发射倒计时';
+        if (countdownText) countdownText.textContent = window.i18n ? window.i18n.t('launchPad.launchCountdown') : '发射倒计时';
         
         this.updateControlButtons();
 
@@ -389,7 +421,7 @@ class LaunchPad {
         const countdownText = document.getElementById('countdownText');
         const countdownNumber = document.getElementById('countdownNumber');
 
-        if (countdownText) countdownText.textContent = '发射！';
+        if (countdownText) countdownText.textContent = window.i18n ? window.i18n.t('launchPad.launch') : '发射！';
         if (countdownNumber) countdownNumber.textContent = '🚀';
 
         // 启动物理模拟
@@ -490,12 +522,12 @@ function activateNextStage() {
         
         if (!success) {
             if (typeof showNotification === 'function') {
-                showNotification('分级失败', '没有更多分级可以激活', 'warning');
+                showNotification('notifications.staging.failed', 'notifications.staging.noMoreStages', 'warning');
             }
         }
     } else {
         if (typeof showNotification === 'function') {
-            showNotification('分级失败', '火箭尚未发射', 'warning');
+            showNotification('notifications.staging.failed', 'notifications.staging.notLaunched', 'warning');
         }
     }
 }

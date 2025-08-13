@@ -1,0 +1,380 @@
+export default {
+    // 通用
+    common: {
+        back: '返回',
+        save: '保存',
+        cancel: '取消',
+        confirm: '确认',
+        loading: '加载中...',
+        error: '错误',
+        success: '成功',
+        warning: '警告',
+        info: '信息',
+        close: '关闭',
+        home: '主页',
+        settings: '设置',
+        help: '帮助',
+        clear: '清空',
+        resetView: '重置视图',
+        snapToGrid: '网格吸附'
+    },
+
+    // 主页面
+    main: {
+        gameTitle: '网页太空计划',
+        gameSubtitle: 'Web Space Program',
+        rocketBuilder: {
+            title: '载具装配大楼',
+            description: '设计和建造你的火箭',
+            button: '进入装配'
+        },
+        trackingStation: {
+            title: '追踪站',
+            description: '监控你的任务和载具',
+            button: '进入追踪'
+        },
+        comingSoon: '即将推出！'
+    },
+
+    // 火箭建造器
+    rocketBuilder: {
+        title: '载具装配大楼',
+        backToHome: '返回主页',
+        saveDesign: '保存设计',
+        launch: '发射',
+        panels: {
+            assembly: '装配区',
+            parts: '部件库',
+            info: '信息'
+        },
+        partsLibrary: {
+            title: '部件库',
+            categories: {
+                all: '全部',
+                command: '指挥舱',
+                fuel: '燃料箱',
+                engines: '引擎',
+                structural: '结构件',
+                science: '科学仪器'
+            },
+            searchPlaceholder: '搜索部件...'
+        },
+        partsPanel: {
+            mass: '质量',
+            thrust: '推力',
+            crew: '载员'
+        },
+        assemblyArea: {
+            title: '装配区域',
+            dragHint: '从左侧拖拽部件到这里',
+            emptyHint: '开始建造你的火箭！'
+        },
+        infoPanel: {
+            title: '载具信息',
+            rocketName: '载具名称',
+            unnamed: '未命名载具',
+            stats: {
+                totalMass: '总质量',
+                totalCost: '总成本',
+                partCount: '部件数量',
+                stages: '级数'
+            },
+            units: {
+                kg: 'kg',
+                funds: '资金'
+            }
+        },
+        selectedPart: {
+            title: '选中部件',
+            none: '未选中任何部件'
+        },
+        partInfo: {
+            // 燃料控制
+            fuelControls: '燃料控制',
+            liquidFuel: '液体燃料',
+            oxidizer: '氧化剂',
+            units: '单位',
+            fullLoad: '满载',
+            halfLoad: '半载',
+            emptyLoad: '空载',
+            
+            // 分离器控制
+            decouplerControls: '分离器控制',
+            separationForce: '分离力',
+            upperStage: '上级部件',
+            lowerStage: '下级部件',
+            testSeparation: '测试分离',
+            stagingInfo: '分级信息',
+            countUnit: '个',
+            
+            // 部件属性
+            mass: '质量',
+            cost: '成本',
+            thrust: '推力',
+            vacuumIsp: '比冲 (真空)',
+            crewCapacity: '载员容量',
+            peopleUnit: '人',
+            dimensions: '尺寸',
+            removePart: '移除此部件'
+        },
+        help: {
+            title: '操作提示',
+            dragRoot: '• 首先拖拽一个部件作为根部件（自动居中）',
+            dragConnect: '• 继续拖拽部件连接到已有部件',
+            dragMove: '• 拖拽部件移动位置',
+            dragView: '• 拖拽空白区域移动视图',
+            clickInfo: '• 点击部件查看详细信息',
+            rightClick: '• 右键或在信息界面删除部件',
+            zoom: '• Ctrl+滚轮或双指缩放',
+            controls: '• 使用底部控制按钮：重置视图、切换网格吸附',
+            shortcuts: '• 键盘快捷键：G(网格吸附) R(重置视图)',
+            debug: '• 移动部件时按F12查看控制台调试信息'
+        },
+        notifications: {
+            saved: '设计已保存',
+            launched: '准备发射载具',
+            partAdded: '部件已添加',
+            partRemoved: '部件已移除',
+            invalidRocket: '无效的载具设计'
+        },
+        staging: {
+            noDecoupler: '当前载具没有检测到分离器，无法进行分级。\n\n添加分离器部件可以创建多级火箭设计。',
+            title: '火箭分级信息',
+            stage: '第',
+            stageUnit: '级',
+            decoupler: '分离器',
+            partCount: '部件数量',
+            totalMass: '总质量',
+            deltaV: '预估ΔV',
+            totalStages: '总级数',
+            note: '注意: 发射时分离器将按优先级顺序激活。'
+        },
+        connectivity: {
+            connected: '已连接到根部件的部件',
+            disconnected: '未连接到根部件的部件（不参与计算）',
+            rootConnected: '💡 只有与<span class="root-part-highlight">根部件</span>连通的部件参与计算',
+            disconnectedHint: '未连通的部件显示为<span class="disconnected-highlight">半透明</span>'
+        },
+        welcome: {
+            title: '装配大楼',
+            message: '欢迎来到载具装配大楼！先选择一个根部件，然后逐步构建载具。'
+        },
+        rootPart: {
+            title: '根部件'
+        },
+        confirmations: {
+            goBack: '确定要返回主页吗？未保存的设计将丢失。',
+            clearAssembly: '确定要清空当前载具设计吗？'
+        },
+        alerts: {
+            designSaved: '设计已保存到下载文件夹',
+            decouplerTestFailed: '分离器测试失败！请检查分离器是否正确连接。',
+            noVehicle: '请先设计一个载具！',
+            noEngine: '载具需要至少一个引擎才能发射！',
+            saveDataFailed: '保存火箭数据失败，请重试'
+        }
+    },
+
+    // 发射台
+    launchPad: {
+        title: '发射台',
+        backToAssembly: '返回装配',
+        flightData: {
+            title: '飞行数据',
+            altitude: '高度',
+            velocity: '速度',
+            acceleration: '加速度',
+            fuel: '燃料',
+            throttle: '推力',
+            stage: '级数'
+        },
+        controls: {
+            title: '飞行控制',
+            launch: '发射',
+            abort: '紧急中止',
+            staging: '分离',
+            throttleUp: '增加推力',
+            throttleDown: '减少推力',
+            sas: '姿态稳定系统',
+            rcs: '反应控制系统'
+        },
+        status: {
+            ready: '准备就绪',
+            launching: '发射中',
+            flying: '飞行中',
+            landed: '已着陆',
+            crashed: '坠毁',
+            orbit: '轨道中'
+        },
+        units: {
+            meters: 'm',
+            metersPerSecond: 'm/s',
+            metersPerSecondSquared: 'm/s²',
+            percent: '%'
+        },
+        notifications: {
+            launchSuccess: '发射成功！',
+            stageEmpty: '当前级燃料耗尽',
+            missionComplete: '任务完成',
+            vehicleLost: '载具失联'
+        },
+        
+        // 分级和火箭详情
+        singleStage: '单级火箭',
+        noStagingInfo: '无分级信息',
+        stage: '第',
+        stageUnit: '级',
+        parts: '部件',
+        mass: '质量',
+        engines: '引擎',
+        withDecoupler: '有分离器',
+        withoutDecoupler: '无分离器',
+        countdownInProgress: '倒计时中...',
+        launched: '已发射',
+        igniteAndLaunch: '点火发射',
+        launchCountdown: '发射倒计时',
+        launch: '发射！'
+    },
+
+    // 火箭部件
+    parts: {
+        // 指挥舱
+        commandPod: {
+            name: 'Mk1 指令舱',
+            description: '单人指令舱，用于控制载具',
+            category: 'command'
+        },
+        
+        // 燃料箱
+        fuelTankSmall: {
+            name: 'FL-T100 燃料罐',
+            description: '小型液体燃料罐，适合轻型载具。支持顶部、底部和侧面连接。',
+            category: 'fuel'
+        },
+        fuelTankMedium: {
+            name: 'FL-T400 燃料罐',
+            description: '大型液体燃料罐，提供充足的燃料储存。支持顶部、底部和侧面连接。',
+            category: 'fuel'
+        },
+        fuelTankLarge: {
+            name: 'FL-T800 燃料罐',
+            description: '超大型液体燃料罐，适合重型载具和长距离任务',
+            category: 'fuel'
+        },
+
+        // 引擎
+        liquidEngine909: {
+            name: 'LV-909 液体燃料引擎',
+            description: '高效真空引擎，适合上面级使用',
+            category: 'engines'
+        },
+        liquidEngine: {
+            name: 'LV-T30 液体燃料引擎',
+            description: '可靠的液体燃料火箭引擎',
+            category: 'engines'
+        },
+        solidBooster: {
+            name: 'RT-10 固体燃料助推器',
+            description: '简单的固体燃料引擎',
+            category: 'engines'
+        },
+
+        // 结构件
+        decoupler: {
+            name: 'TD-12 分离连接器',
+            description: '用于火箭分级的分离连接器。可在指定时机分离上下两级火箭，实现多级火箭设计。分离时会产生一定的分离力。',
+            category: 'structural'
+        },
+        noseCone: {
+            name: '空气动力鼻锥',
+            description: '减少空气阻力的鼻锥',
+            category: 'structural'
+        }
+    },
+
+    // 通知消息
+    notifications: {
+        welcome: {
+            title: '欢迎来到 KSP Web',
+            message: '探索浩瀚宇宙的旅程即将开始！'
+        },
+        gridSnap: {
+            title: '网格吸附',
+            enabled: '网格吸附已开启',
+            disabled: '网格吸附已关闭'
+        },
+        panelSwitch: {
+            title: '面板切换',
+            assembly: '已切换到装配区',
+            parts: '已切换到部件库',
+            info: '已切换到信息面板'
+        },
+        rootPart: {
+            title: '根部件',
+            message: '根部件已放置在中心位置，现在可以添加其他部件'
+        },
+        autoConnect: {
+            title: '自动连接',
+            message: '部件已自动连接到 {partName}',
+            afterMove: '部件移动后自动连接到 {partName}'
+        },
+        connectionBroken: {
+            title: '连接断开',
+            message: '{count}个连接因距离过远而自动断开'
+        },
+        partSelected: {
+            title: '部件选中',
+            message: '已选中 {partName}，自动切换到信息面板'
+        },
+        viewReset: {
+            title: '视图重置',
+            message: '画布视图已重置到默认位置'
+        },
+        zoomReset: {
+            title: '缩放重置',
+            message: '画布缩放已重置，位置保持不变'
+        },
+        gridSnap: {
+            title: '网格吸附',
+            enabled: '网格吸附已开启',
+            disabled: '网格吸附已关闭'
+        },
+        connection: {
+            autoConnected: '部件已自动连接',
+            connected: '部件已连接',
+            disconnected: '部件已断开连接'
+        },
+        staging: {
+            failed: '分级失败',
+            noMoreStages: '没有更多分级可以激活',
+            notLaunched: '火箭尚未发射',
+            activated: '分级已激活',
+            separated: '分离器已激活'
+        },
+        loading: {
+            rocketData: '加载火箭数据中...',
+            complete: '加载完成'
+        }
+    },
+
+    // 错误消息
+    errors: {
+        networkError: '网络连接错误',
+        fileNotFound: '文件未找到',
+        invalidData: '数据格式错误',
+        saveError: '保存失败',
+        loadError: '加载失败',
+        noRocketData: '没有找到火箭数据，请先在装配厂创建火箭',
+        invalidRocketData: '火箭数据无效，请重新加载',
+        loadRocketDataFailed: '加载火箭数据失败'
+    },
+
+    // 语言选择
+    language: {
+        title: '语言',
+        current: '当前语言',
+        switch: '切换语言',
+        chinese: '简体中文',
+        english: 'English'
+    }
+};

@@ -14,7 +14,7 @@ class RocketBuilder {
     }
 
     // 初始化装配器
-    init() {
+    async init() {
         this.canvas = document.getElementById('assemblyCanvas');
         if (!this.canvas) {
             console.error('找不到装配画布元素');
@@ -24,7 +24,10 @@ class RocketBuilder {
         this.setupCanvas();
         this.setupEventListeners();
         this.setupUIControls();
-        this.loadPartsPanel();
+        
+        // 等待翻译系统就绪后加载部件面板
+        await this.loadPartsPanel();
+        
         this.updateUI();
     }
 
@@ -81,7 +84,11 @@ class RocketBuilder {
             snapToGridCheckbox.addEventListener('change', (e) => {
                 this.snapToGrid = e.target.checked;
                 if (typeof showNotification === 'function') {
-                    showNotification('网格吸附', `网格吸附已${this.snapToGrid ? '开启' : '关闭'}`, 'info');
+                    const titleKey = 'notifications.gridSnap.title';
+                    const messageKey = this.snapToGrid ? 
+                        'notifications.gridSnap.enabled' : 
+                        'notifications.gridSnap.disabled';
+                    showNotification(titleKey, messageKey, 'info');
                 }
             });
         }
@@ -123,6 +130,14 @@ class RocketBuilder {
         
         // 右键菜单
         document.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // 语言切换事件
+        document.addEventListener('languageChanged', () => {
+            // 重新加载部件面板以更新翻译
+            this.loadPartsPanel();
+            // 更新UI中的其他文本
+            this.updateUI();
+        });
         
         // 移动端面板切换
         this.setupMobilePanelToggle();
@@ -166,12 +181,12 @@ class RocketBuilder {
                 
                 // 显示通知
                 if (typeof showNotification === 'function') {
-                    const panelNames = {
-                        'assembly': '装配区',
-                        'parts': '部件库',
-                        'info': '信息面板'
+                    const panelNameKeys = {
+                        'assembly': 'notifications.panelSwitch.assembly',
+                        'parts': 'notifications.panelSwitch.parts',
+                        'info': 'notifications.panelSwitch.info'
                     };
-                    showNotification('面板切换', `已切换到${panelNames[targetPanel]}`, 'info');
+                    showNotification('notifications.panelSwitch.title', panelNameKeys[targetPanel], 'info');
                 }
             });
         });
@@ -182,7 +197,31 @@ class RocketBuilder {
         const partsList = document.getElementById('partsList');
         if (!partsList) return;
 
+        // 确保翻译系统已初始化
+        if (!window.i18n.isInitialized()) {
+            await new Promise(resolve => {
+                document.addEventListener('i18nReady', resolve, { once: true });
+            });
+        }
+
         const allParts = RocketParts.getAllParts();
+        
+        // 更新所有部件的翻译
+        allParts.forEach(part => {
+            if (part.nameKey && window.i18n) {
+                const translatedName = window.i18n.t(part.nameKey);
+                if (translatedName !== part.nameKey) {
+                    part.name = translatedName;
+                }
+            }
+            if (part.descriptionKey && window.i18n) {
+                const translatedDesc = window.i18n.t(part.descriptionKey);
+                if (translatedDesc !== part.descriptionKey) {
+                    part.description = translatedDesc;
+                }
+            }
+        });
+        
         partsList.innerHTML = '';
 
         for (const part of allParts) {
@@ -201,15 +240,29 @@ class RocketBuilder {
         // 加载SVG
         const svgContent = await RocketParts.loadPartSVG(part);
         
+        // 确保部件名称和描述是最新的翻译
+        let displayName = part.name;
+        if (part.nameKey && window.i18n) {
+            const translatedName = window.i18n.t(part.nameKey);
+            if (translatedName !== part.nameKey) {
+                displayName = translatedName;
+            }
+        }
+        
+        // 获取国际化文本
+        const massLabel = window.i18n ? window.i18n.t('rocketBuilder.partsPanel.mass') : 'Mass';
+        const thrustLabel = window.i18n ? window.i18n.t('rocketBuilder.partsPanel.thrust') : 'Thrust';
+        const crewLabel = window.i18n ? window.i18n.t('rocketBuilder.partsPanel.crew') : 'Crew';
+        
         partDiv.innerHTML = `
             <div class="part-icon">
                 ${svgContent}
             </div>
             <div class="part-info">
-                <div class="part-name">${part.name}</div>
+                <div class="part-name">${displayName}</div>
                 <div class="part-stats">
-                    质量: ${part.mass}t | 
-                    ${part.thrust ? `推力: ${part.thrust}kN` : `载员: ${part.crew_capacity || 0}`}
+                    ${massLabel}: ${part.mass}t | 
+                    ${part.thrust ? `${thrustLabel}: ${part.thrust}kN` : `${crewLabel}: ${part.crew_capacity || 0}`}
                 </div>
             </div>
         `;
@@ -377,7 +430,7 @@ class RocketBuilder {
             console.log('根部件放置位置:', position);
 
             if (typeof showNotification === 'function') {
-                showNotification('根部件', '根部件已放置在中心位置，现在可以添加其他部件', 'info');
+                showNotification('notifications.rootPart.title', 'notifications.rootPart.message', 'info');
             }
         } else {
             // 后续部件需要考虑连接点和当前的缩放/平移状态
@@ -525,8 +578,11 @@ class RocketBuilder {
             console.log('\n=== 自动连接成功！===');
             console.log('最佳连接:', bestConnection);
             if (typeof showNotification === 'function') {
-                showNotification('自动连接', 
-                    `部件已自动连接到 ${bestConnection.existingPart.data.name}`, 'success');
+                const title = window.i18n ? window.i18n.t('notifications.autoConnect.title') : '自动连接';
+                const message = window.i18n ? 
+                    window.i18n.t('notifications.autoConnect.message', { partName: bestConnection.existingPart.data.name }) :
+                    `部件已自动连接到 ${bestConnection.existingPart.data.name}`;
+                showNotification(title, message, 'success');
             }
         } else {
             console.log('\n=== 未找到合适的连接点 ===');
@@ -672,15 +728,21 @@ class RocketBuilder {
                     // 检查是否有连接因距离过远而需要断开
                     const brokenConnections = this.assembly.checkAndBreakInvalidConnections();
                     if (brokenConnections.length > 0 && typeof showNotification === 'function') {
-                        showNotification('连接断开', 
-                            `${brokenConnections.length}个连接因距离过远而自动断开`, 'warning');
+                        const title = window.i18n ? window.i18n.t('notifications.connectionBroken.title') : '连接断开';
+                        const message = window.i18n ? 
+                            window.i18n.t('notifications.connectionBroken.message', { count: brokenConnections.length }) :
+                            `${brokenConnections.length}个连接因距离过远而自动断开`;
+                        showNotification(title, message, 'warning');
                     }
                     
                     // 尝试在移动后建立新的自动连接
                     const newConnection = this.attemptAutoConnectForMovedPart(assemblyPart);
                     if (newConnection && typeof showNotification === 'function') {
-                        showNotification('自动连接', 
-                            `部件移动后自动连接到 ${newConnection.targetPart.data.name}`, 'success');
+                        const title = window.i18n ? window.i18n.t('notifications.autoConnect.title') : '自动连接';
+                        const message = window.i18n ? 
+                            window.i18n.t('notifications.autoConnect.afterMove', { partName: newConnection.targetPart.data.name }) :
+                            `部件移动后自动连接到 ${newConnection.targetPart.data.name}`;
+                        showNotification(title, message, 'success');
                     }
                     
                     // 更新连接线显示
@@ -737,7 +799,11 @@ class RocketBuilder {
             
             // 显示选中通知
             if (typeof showNotification === 'function') {
-                showNotification('部件选中', `已选中 ${assemblyPart.data.name}，自动切换到信息面板`, 'info');
+                const title = window.i18n ? window.i18n.t('notifications.partSelected.title') : '部件选中';
+                const message = window.i18n ? 
+                    window.i18n.t('notifications.partSelected.message', { partName: assemblyPart.data.name }) :
+                    `已选中 ${assemblyPart.data.name}，自动切换到信息面板`;
+                showNotification(title, message, 'info');
             }
         }
     }
@@ -765,12 +831,22 @@ class RocketBuilder {
         if (!infoPanel) return;
 
         if (!this.selectedPart) {
-            infoPanel.innerHTML = '<p class="no-selection">未选中任何部件</p>';
+            const noSelectionText = window.i18n ? window.i18n.t('rocketBuilder.selectedPart.none') : '未选中任何部件';
+            infoPanel.innerHTML = `<p class="no-selection">${noSelectionText}</p>`;
             return;
         }
 
         const part = this.selectedPart.data;
         let fuelControlsHtml = '';
+        
+        // 获取国际化文本
+        const fuelControlTitle = window.i18n ? window.i18n.t('rocketBuilder.partInfo.fuelControls') : '燃料控制';
+        const liquidFuelLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.liquidFuel') : '液体燃料';
+        const oxidizerLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.oxidizer') : '氧化剂';
+        const unitsLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.units') : '单位';
+        const fullLoadBtn = window.i18n ? window.i18n.t('rocketBuilder.partInfo.fullLoad') : '满载';
+        const halfLoadBtn = window.i18n ? window.i18n.t('rocketBuilder.partInfo.halfLoad') : '半载';
+        const emptyLoadBtn = window.i18n ? window.i18n.t('rocketBuilder.partInfo.emptyLoad') : '空载';
         
         // 如果是燃料罐，添加燃料控制界面
         if (part.type === 'fuel-tank' && this.selectedPart.fuelStatus) {
@@ -781,9 +857,9 @@ class RocketBuilder {
             
             fuelControlsHtml = `
                 <div class="fuel-controls">
-                    <h5>燃料控制</h5>
+                    <h5>${fuelControlTitle}</h5>
                     <div class="fuel-type">
-                        <label>液体燃料: ${currentLiquid.toFixed(1)} / ${liquidFuelMax} 单位</label>
+                        <label>${liquidFuelLabel}: ${currentLiquid.toFixed(1)} / ${liquidFuelMax} ${unitsLabel}</label>
                         <input type="range" 
                                id="liquidFuelSlider" 
                                min="0" 
@@ -794,7 +870,7 @@ class RocketBuilder {
                         <div class="fuel-percentage">${((currentLiquid / liquidFuelMax) * 100).toFixed(1)}%</div>
                     </div>
                     <div class="fuel-type">
-                        <label>氧化剂: ${currentOxidizer.toFixed(1)} / ${oxidizerMax} 单位</label>
+                        <label>${oxidizerLabel}: ${currentOxidizer.toFixed(1)} / ${oxidizerMax} ${unitsLabel}</label>
                         <input type="range" 
                                id="oxidizerSlider" 
                                min="0" 
@@ -805,13 +881,22 @@ class RocketBuilder {
                         <div class="fuel-percentage">${((currentOxidizer / oxidizerMax) * 100).toFixed(1)}%</div>
                     </div>
                     <div class="fuel-quick-actions">
-                        <button onclick="rocketBuilder.setFuelLevel(1.0)" class="fuel-action-btn">满载</button>
-                        <button onclick="rocketBuilder.setFuelLevel(0.5)" class="fuel-action-btn">半载</button>
-                        <button onclick="rocketBuilder.setFuelLevel(0.0)" class="fuel-action-btn">空载</button>
+                        <button onclick="rocketBuilder.setFuelLevel(1.0)" class="fuel-action-btn">${fullLoadBtn}</button>
+                        <button onclick="rocketBuilder.setFuelLevel(0.5)" class="fuel-action-btn">${halfLoadBtn}</button>
+                        <button onclick="rocketBuilder.setFuelLevel(0.0)" class="fuel-action-btn">${emptyLoadBtn}</button>
                     </div>
                 </div>
             `;
         }
+        
+        // 获取分离器控制相关文本
+        const decouplerControlTitle = window.i18n ? window.i18n.t('rocketBuilder.partInfo.decouplerControls') : '分离器控制';
+        const separationForceLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.separationForce') : '分离力';
+        const upperStageLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.upperStage') : '上级部件';
+        const lowerStageLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.lowerStage') : '下级部件';
+        const testSeparationBtn = window.i18n ? window.i18n.t('rocketBuilder.partInfo.testSeparation') : '测试分离';
+        const stagingInfoBtn = window.i18n ? window.i18n.t('rocketBuilder.partInfo.stagingInfo') : '分级信息';
+        const countUnit = window.i18n ? window.i18n.t('rocketBuilder.partInfo.countUnit') : '个';
         
         // 如果是分离器，添加分离控制界面
         let decouplerControlsHtml = '';
@@ -820,27 +905,27 @@ class RocketBuilder {
             if (separationGroups) {
                 decouplerControlsHtml = `
                     <div class="decoupler-controls">
-                        <h5>分离器控制</h5>
+                        <h5>${decouplerControlTitle}</h5>
                         <div class="decoupler-info">
                             <div class="property-item">
-                                <label>分离力:</label>
+                                <label>${separationForceLabel}:</label>
                                 <span>${part.separation_force || 2500} N</span>
                             </div>
                             <div class="property-item">
-                                <label>上级部件:</label>
-                                <span>${separationGroups.upperStage.length} 个</span>
+                                <label>${upperStageLabel}:</label>
+                                <span>${separationGroups.upperStage.length} ${countUnit}</span>
                             </div>
                             <div class="property-item">
-                                <label>下级部件:</label>
-                                <span>${separationGroups.lowerStage.length} 个</span>
+                                <label>${lowerStageLabel}:</label>
+                                <span>${separationGroups.lowerStage.length} ${countUnit}</span>
                             </div>
                         </div>
                         <div class="decoupler-actions">
                             <button onclick="rocketBuilder.testDecouplerSeparation('${this.selectedPart.id}')" class="decoupler-action-btn">
-                                测试分离
+                                ${testSeparationBtn}
                             </button>
                             <button onclick="rocketBuilder.showStagingInfo()" class="decoupler-action-btn">
-                                分级信息
+                                ${stagingInfoBtn}
                             </button>
                         </div>
                     </div>
@@ -848,44 +933,54 @@ class RocketBuilder {
             }
         }
         
+        // 获取部件属性相关文本
+        const massLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.mass') : '质量';
+        const costLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.cost') : '成本';
+        const thrustLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.thrust') : '推力';
+        const vacuumIspLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.vacuumIsp') : '比冲 (真空)';
+        const crewCapacityLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.crewCapacity') : '载员容量';
+        const peopleUnit = window.i18n ? window.i18n.t('rocketBuilder.partInfo.peopleUnit') : '人';
+        const dimensionsLabel = window.i18n ? window.i18n.t('rocketBuilder.partInfo.dimensions') : '尺寸';
+        const removePartBtn = window.i18n ? window.i18n.t('rocketBuilder.partInfo.removePart') : '移除此部件';
+        
         infoPanel.innerHTML = `
             <div class="selected-part-details">
                 <h4>${part.name}</h4>
                 <p class="part-description">${part.description}</p>
                 <div class="part-properties">
                     <div class="property-item">
-                        <label>质量:</label>
+                        <label>${massLabel}:</label>
                         <span>${this.getPartCurrentMass().toFixed(2)} t</span>
                     </div>
                     <div class="property-item">
-                        <label>成本:</label>
+                        <label>${costLabel}:</label>
                         <span>${part.cost} √</span>
                     </div>
                     ${part.thrust ? `
                         <div class="property-item">
-                            <label>推力:</label>
+                            <label>${thrustLabel}:</label>
                             <span>${part.thrust} kN</span>
                         </div>
                         <div class="property-item">
-                            <label>比冲 (真空):</label>
+                            <label>${vacuumIspLabel}:</label>
                             <span>${part.isp_vacuum} s</span>
                         </div>
                     ` : ''}
                     ${part.crew_capacity ? `
                         <div class="property-item">
-                            <label>载员容量:</label>
-                            <span>${part.crew_capacity} 人</span>
+                            <label>${crewCapacityLabel}:</label>
+                            <span>${part.crew_capacity} ${peopleUnit}</span>
                         </div>
                     ` : ''}
                     <div class="property-item">
-                        <label>尺寸:</label>
+                        <label>${dimensionsLabel}:</label>
                         <span>${part.dimensions.width}m × ${part.dimensions.height}m</span>
                     </div>
                 </div>
                 ${fuelControlsHtml}
                 ${decouplerControlsHtml}
                 <button class="remove-part-btn" onclick="rocketBuilder.removeAssemblyPart('${this.selectedPart.id}')">
-                    移除此部件
+                    ${removePartBtn}
                 </button>
             </div>
         `;
@@ -929,13 +1024,19 @@ class RocketBuilder {
                 partElement.style.opacity = '0.4';
                 partElement.classList.add('disconnected');
                 partElement.classList.remove('connected');
-                partElement.title = '未连接到根部件的部件（不参与计算）';
+                const disconnectedTitle = window.i18n ? 
+                    window.i18n.t('rocketBuilder.connectivity.disconnected') : 
+                    '未连接到根部件的部件（不参与计算）';
+                partElement.title = disconnectedTitle;
             } else {
                 // 连通部件设为正常显示
                 partElement.style.opacity = '1.0';
                 partElement.classList.add('connected');
                 partElement.classList.remove('disconnected');
-                partElement.title = '已连接到根部件的部件';
+                const connectedTitle = window.i18n ? 
+                    window.i18n.t('rocketBuilder.connectivity.connected') : 
+                    '已连接到根部件的部件';
+                partElement.title = connectedTitle;
             }
         });
 
@@ -944,7 +1045,8 @@ class RocketBuilder {
             const rootElement = document.querySelector(`.assembly-part[data-part-id="${this.assembly.rootPart}"]`);
             if (rootElement) {
                 rootElement.classList.add('root-part');
-                rootElement.title = '根部件';
+                const rootTitle = window.i18n ? window.i18n.t('rocketBuilder.rootPart.title') : '根部件';
+                rootElement.title = rootTitle;
                 // 根部件添加特殊边框或标识
                 rootElement.style.border = '2px solid #ffff00';
                 rootElement.style.borderRadius = '4px';
@@ -1199,7 +1301,9 @@ class RocketBuilder {
         
         // 显示提示
         if (typeof showNotification === 'function') {
-            showNotification('视图重置', '画布视图已重置到默认位置', 'info');
+            const title = window.i18n ? window.i18n.t('notifications.viewReset.title') : '视图重置';
+            const message = window.i18n ? window.i18n.t('notifications.viewReset.message') : '画布视图已重置到默认位置';
+            showNotification(title, message, 'info');
         }
     }
 
@@ -1210,7 +1314,9 @@ class RocketBuilder {
         
         // 显示提示
         if (typeof showNotification === 'function') {
-            showNotification('缩放重置', '画布缩放已重置，位置保持不变', 'info');
+            const title = window.i18n ? window.i18n.t('notifications.zoomReset.title') : '缩放重置';
+            const message = window.i18n ? window.i18n.t('notifications.zoomReset.message') : '画布缩放已重置，位置保持不变';
+            showNotification(title, message, 'info');
         }
     }
 
@@ -1238,7 +1344,11 @@ class RocketBuilder {
                 this.snapToGrid = !this.snapToGrid;
                 console.log(`网格吸附: ${this.snapToGrid ? '开启' : '关闭'}`);
                 if (typeof showNotification === 'function') {
-                    showNotification('网格吸附', `网格吸附已${this.snapToGrid ? '开启' : '关闭'}`, 'info');
+                    const title = window.i18n ? window.i18n.t('notifications.gridSnap.title') : '网格吸附';
+                    const message = window.i18n ? 
+                        window.i18n.t(`notifications.gridSnap.${this.snapToGrid ? 'enabled' : 'disabled'}`) :
+                        `网格吸附已${this.snapToGrid ? '开启' : '关闭'}`;
+                    showNotification(title, message, 'info');
                 }
                 break;
             case 'r':
@@ -1576,6 +1686,29 @@ class RocketBuilder {
         const partsList = document.getElementById('partsList');
         if (!partsList) return;
 
+        // 确保翻译系统已初始化
+        if (!window.i18n.isInitialized()) {
+            await new Promise(resolve => {
+                document.addEventListener('i18nReady', resolve, { once: true });
+            });
+        }
+
+        // 更新所有部件的翻译
+        parts.forEach(part => {
+            if (part.nameKey && window.i18n) {
+                const translatedName = window.i18n.t(part.nameKey);
+                if (translatedName !== part.nameKey) {
+                    part.name = translatedName;
+                }
+            }
+            if (part.descriptionKey && window.i18n) {
+                const translatedDesc = window.i18n.t(part.descriptionKey);
+                if (translatedDesc !== part.descriptionKey) {
+                    part.description = translatedDesc;
+                }
+            }
+        });
+
         partsList.innerHTML = '';
         
         for (const part of parts) {
@@ -1679,7 +1812,10 @@ class RocketBuilder {
 
     // 清空组装
     clearAssembly() {
-        if (confirm('确定要清空当前载具设计吗？')) {
+        const confirmMessage = window.i18n ? 
+            window.i18n.t('rocketBuilder.confirmations.clearAssembly') : 
+            '确定要清空当前载具设计吗？';
+        if (confirm(confirmMessage)) {
             this.assembly.clear();
             document.getElementById('rocketAssembly').innerHTML = '';
             this.selectedPart = null;
@@ -1701,7 +1837,8 @@ class RocketBuilder {
         a.click();
         URL.revokeObjectURL(url);
 
-        alert('设计已保存到下载文件夹');
+        const saveMessage = window.i18n ? window.i18n.t('rocketBuilder.alerts.designSaved') : '设计已保存到下载文件夹';
+        alert(saveMessage);
     }
 
     // 测试分离器分离功能
@@ -1727,7 +1864,10 @@ class RocketBuilder {
                 showNotification('分离器测试', `${result.decoupler.data.name} 分离测试完成`, 'success');
             }
         } else {
-            alert('分离器测试失败！请检查分离器是否正确连接。');
+            const failMessage = window.i18n ? 
+                window.i18n.t('rocketBuilder.alerts.decouplerTestFailed') : 
+                '分离器测试失败！请检查分离器是否正确连接。';
+            alert(failMessage);
         }
     }
 
@@ -1736,21 +1876,34 @@ class RocketBuilder {
         const stagingInfo = this.assembly.getStagingInfo();
         
         if (stagingInfo.length === 0) {
-            alert('当前载具没有检测到分离器，无法进行分级。\n\n添加分离器部件可以创建多级火箭设计。');
+            const noDecouplerMsg = window.i18n ? 
+                window.i18n.t('rocketBuilder.staging.noDecoupler') : 
+                '当前载具没有检测到分离器，无法进行分级。\n\n添加分离器部件可以创建多级火箭设计。';
+            alert(noDecouplerMsg);
             return;
         }
 
-        let infoMessage = '火箭分级信息:\n\n';
+        const stagingTitle = window.i18n ? window.i18n.t('rocketBuilder.staging.title') : '火箭分级信息';
+        const stageLabel = window.i18n ? window.i18n.t('rocketBuilder.staging.stage') : '第';
+        const stageUnit = window.i18n ? window.i18n.t('rocketBuilder.staging.stageUnit') : '级';
+        const decouplerLabel = window.i18n ? window.i18n.t('rocketBuilder.staging.decoupler') : '分离器';
+        const partCountLabel = window.i18n ? window.i18n.t('rocketBuilder.staging.partCount') : '部件数量';
+        const totalMassLabel = window.i18n ? window.i18n.t('rocketBuilder.staging.totalMass') : '总质量';
+        const deltaVLabel = window.i18n ? window.i18n.t('rocketBuilder.staging.deltaV') : '预估ΔV';
+        const totalStagesLabel = window.i18n ? window.i18n.t('rocketBuilder.staging.totalStages') : '总级数';
+        const noteLabel = window.i18n ? window.i18n.t('rocketBuilder.staging.note') : '注意: 发射时分离器将按优先级顺序激活。';
+        
+        let infoMessage = `${stagingTitle}:\n\n`;
         stagingInfo.forEach((stage, index) => {
-            infoMessage += `第 ${stage.stage} 级:\n`;
-            infoMessage += `  分离器: ${stage.decoupler.data.name}\n`;
-            infoMessage += `  部件数量: ${stage.partsCount}\n`;
-            infoMessage += `  总质量: ${stage.mass.toFixed(2)} t\n`;
-            infoMessage += `  预估ΔV: ${stage.deltaV.toFixed(0)} m/s\n\n`;
+            infoMessage += `${stageLabel} ${stage.stage} ${stageUnit}:\n`;
+            infoMessage += `  ${decouplerLabel}: ${stage.decoupler.data.name}\n`;
+            infoMessage += `  ${partCountLabel}: ${stage.partsCount}\n`;
+            infoMessage += `  ${totalMassLabel}: ${stage.mass.toFixed(2)} t\n`;
+            infoMessage += `  ${deltaVLabel}: ${stage.deltaV.toFixed(0)} m/s\n\n`;
         });
 
-        infoMessage += `总级数: ${stagingInfo.length}\n`;
-        infoMessage += `\n注意: 发射时分离器将按优先级顺序激活。`;
+        infoMessage += `${totalStagesLabel}: ${stagingInfo.length}\n`;
+        infoMessage += `\n${noteLabel}`;
 
         alert(infoMessage);
     }
@@ -1761,7 +1914,10 @@ class RocketBuilder {
             if (typeof showNotification === 'function') {
                 showNotification('无法发射', '请先设计一个载具！', 'error');
             } else {
-                alert('请先设计一个载具！');
+                const noVehicleMessage = window.i18n ? 
+                    window.i18n.t('rocketBuilder.alerts.noVehicle') : 
+                    '请先设计一个载具！';
+                alert(noVehicleMessage);
             }
             return;
         }
@@ -1771,7 +1927,10 @@ class RocketBuilder {
             if (typeof showNotification === 'function') {
                 showNotification('无法发射', '载具需要至少一个引擎才能发射！', 'error');
             } else {
-                alert('载具需要至少一个引擎才能发射！');
+                const noEngineMessage = window.i18n ? 
+                    window.i18n.t('rocketBuilder.alerts.noEngine') : 
+                    '载具需要至少一个引擎才能发射！';
+                alert(noEngineMessage);
             }
             return;
         }
@@ -1813,7 +1972,10 @@ class RocketBuilder {
             if (typeof showNotification === 'function') {
                 showNotification('保存失败', '无法保存火箭数据，请重试', 'error');
             } else {
-                alert('保存火箭数据失败，请重试');
+                const saveFailedMessage = window.i18n ? 
+                    window.i18n.t('rocketBuilder.alerts.saveDataFailed') : 
+                    '保存火箭数据失败，请重试';
+                alert(saveFailedMessage);
             }
         }
     }
@@ -1821,7 +1983,10 @@ class RocketBuilder {
 
 // 装配大楼相关的全局函数
 function goBack() {
-    if (confirm('确定要返回主页吗？未保存的设计将丢失。')) {
+    const confirmMessage = window.i18n ? 
+        window.i18n.t('rocketBuilder.confirmations.goBack') : 
+        '确定要返回主页吗？未保存的设计将丢失。';
+    if (confirm(confirmMessage)) {
         window.location.href = 'index.html';
     }
 }
@@ -1845,14 +2010,24 @@ function launchRocket() {
 }
 
 // 页面加载完成后初始化装配器
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('载具装配大楼已加载');
+    
+    // 等待国际化系统初始化完成
+    if (!window.i18n.isInitialized()) {
+        await new Promise(resolve => {
+            document.addEventListener('i18nReady', resolve, { once: true });
+        });
+    }
+    
     window.rocketBuilder = new RocketBuilder();
     
     // 添加欢迎提示
     setTimeout(() => {
         if (typeof showNotification === 'function') {
-            showNotification('装配大楼', '欢迎来到载具装配大楼！先选择一个根部件，然后逐步构建载具。', 'welcome');
+            const title = window.i18n ? window.i18n.t('rocketBuilder.welcome.title') : '装配大楼';
+            const message = window.i18n ? window.i18n.t('rocketBuilder.welcome.message') : '欢迎来到载具装配大楼！先选择一个根部件，然后逐步构建载具。';
+            showNotification(title, message, 'welcome');
         }
     }, 500);
 });

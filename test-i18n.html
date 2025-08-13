@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>国际化测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+        }
+        .part-item {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #333;
+            border-radius: 4px;
+        }
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #languageSwitcher {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 语言切换器 -->
+    <div id="languageSwitcher"></div>
+
+    <div class="controls">
+        <button onclick="updatePartsDisplay()">刷新部件显示</button>
+        <button onclick="testNotifications()">测试通知</button>
+    </div>
+
+    <h1 data-i18n="rocketBuilder.title">火箭装配厂</h1>
+
+    <div class="test-section">
+        <h2>基本界面文本测试</h2>
+        <p data-i18n="rocketBuilder.welcome">欢迎使用火箭装配厂</p>
+        <p data-i18n="rocketBuilder.subtitle">设计和建造你的火箭</p>
+    </div>
+
+    <div class="test-section">
+        <h2>错误消息测试</h2>
+        <p><strong data-i18n="errors.noRocketData">没有找到火箭数据，请先在装配厂创建火箭</strong></p>
+        <p><strong data-i18n="errors.invalidRocketData">火箭数据无效，请重新加载</strong></p>
+        <p><strong data-i18n="errors.loadRocketDataFailed">加载火箭数据失败</strong></p>
+    </div>
+
+    <div class="test-section">
+        <h2>发射台文本测试</h2>
+        <p><span data-i18n="launchPad.singleStage">单级火箭</span> - <span data-i18n="launchPad.noStagingInfo">无分级信息</span></p>
+        <p><span data-i18n="launchPad.stage">第</span> 1 <span data-i18n="launchPad.stageUnit">级</span></p>
+        <p><span data-i18n="launchPad.mass">质量</span>: 2.5t</p>
+        <p><span data-i18n="launchPad.engines">引擎</span>: 1</p>
+        <p><span data-i18n="launchPad.withDecoupler">有分离器</span> / <span data-i18n="launchPad.withoutDecoupler">无分离器</span></p>
+        <button><span data-i18n="launchPad.igniteAndLaunch">点火发射</span></button>
+    </div>
+
+    <div class="test-section">
+        <h2>火箭部件测试</h2>
+        <div id="partsDisplay">
+            <!-- 部件将通过JavaScript动态添加 -->
+        </div>
+    </div>
+
+    <script src="js/i18n/i18n.js"></script>
+    <script src="js/i18n/locales/zh-CN.js"></script>
+    <script src="js/i18n/locales/en-US.js"></script>
+    <script src="js/i18n/language-switcher.js"></script>
+    <script src="js/rocket-parts.js"></script>
+    <script src="js/i18n/i18n-parts.js"></script>
+
+    <script>
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            await window.i18n.init();
+            
+            // 初始化部件国际化管理器
+            if (window.I18nRocketParts) {
+                window.i18nRocketParts = new I18nRocketParts();
+                await window.i18nRocketParts.init();
+            }
+            
+            // 创建语言切换器
+            new LanguageSwitcher('#languageSwitcher', {
+                style: 'dropdown',
+                showFlag: true,
+                showText: true
+            });
+
+            // 初始化部件显示
+            updatePartsDisplay();
+
+            // 监听语言变化
+            document.addEventListener('languageChanged', () => {
+                setTimeout(() => {
+                    updatePartsDisplay();
+                }, 100);
+            });
+        });
+
+        function updatePartsDisplay() {
+            const container = document.getElementById('partsDisplay');
+            const parts = RocketParts.getAllParts();
+            
+            container.innerHTML = '';
+            
+            parts.slice(0, 4).forEach(part => {
+                const div = document.createElement('div');
+                div.className = 'part-item';
+                div.innerHTML = `
+                    <h4>${part.name}</h4>
+                    <p>${part.description}</p>
+                    <small>类别: ${part.category} | 质量: ${part.mass}t</small>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function testNotifications() {
+            if (window.showNotification) {
+                window.showNotification(
+                    window.i18n.t('rocketBuilder.notifications.saved') || '设计已保存',
+                    'success'
+                );
+            } else {
+                alert(window.i18n.t('rocketBuilder.notifications.saved') || '设计已保存');
+            }
+        }
+    </script>
+</body>
+</html>
