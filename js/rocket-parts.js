@@ -750,12 +750,30 @@ class RocketAssembly {
         decouplers.forEach((decoupler, index) => {
             const groups = this.getDecouplerSeparationGroups(decoupler.id);
             if (groups) {
+                // 计算各级的引擎数量
+                const upperStageEngines = groups.upperStage.filter(part => part.data.type === 'engine');
+                const lowerStageEngines = groups.lowerStage.filter(part => part.data.type === 'engine');
+                
+                // 对于第一级，显示下级部件（被抛弃的部件）
+                // 对于后续级别，显示上级部件（保留的部件）
+                const isFirstStage = index === 0;
+                const stagePartsCount = isFirstStage ? 
+                    groups.lowerStage.length + 1 : // 下级部件 + 分离器
+                    groups.upperStage.length; // 上级部件
+                    
+                const stageEngines = isFirstStage ? lowerStageEngines : upperStageEngines;
+                
                 stages.push({
                     stage: index + 1,
                     decoupler: groups.decoupler,
-                    partsCount: groups.upperStage.length + groups.lowerStage.length + 1,
+                    partsCount: stagePartsCount,
                     mass: this.calculateStageMass(groups),
-                    deltaV: this.calculateStageDeltaV(groups)
+                    deltaV: this.calculateStageDeltaV(groups),
+                    engines: stageEngines, // 当前级的引擎
+                    upperStageEngines: upperStageEngines, // 上级引擎（分离后保留的引擎）
+                    lowerStageEngines: lowerStageEngines, // 下级引擎（分离掉的引擎）
+                    upperStage: groups.upperStage,
+                    lowerStage: groups.lowerStage
                 });
             }
         });

@@ -274,6 +274,14 @@
     color: #ccc;
     display: flex;
     justify-content: space-between;
+    margin-bottom: 3px;
+}
+
+.stage-engines {
+    font-size: 0.7em;
+    color: #999;
+    display: flex;
+    justify-content: space-between;
 }
 
 /* 底部发射控制面板 */

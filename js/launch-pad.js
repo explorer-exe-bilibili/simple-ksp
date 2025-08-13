@@ -214,6 +214,18 @@ class LaunchPad {
         const totalThrust = engines.reduce((sum, engine) => sum + (engine.data.thrust || 0), 0);
         const twr = totalMass > 0 ? (totalThrust / (totalMass * 9.81)) : 0;
 
+        // 计算总燃料量
+        const fuelTanks = this.assembly.parts.filter(p => p.data.fuel_capacity);
+        let totalLiquidFuel = 0;
+        let totalOxidizer = 0;
+        
+        fuelTanks.forEach(tank => {
+            if (tank.fuelStatus) {
+                totalLiquidFuel += tank.fuelStatus.liquid_fuel || 0;
+                totalOxidizer += tank.fuelStatus.oxidizer || 0;
+            }
+        });
+
         // 更新显示
         document.getElementById('altitude').textContent = '0 m';
         document.getElementById('velocity').textContent = '0 m/s';
@@ -221,6 +233,16 @@ class LaunchPad {
         document.getElementById('mass').textContent = `${totalMass.toFixed(2)} t`;
         document.getElementById('twr').textContent = twr.toFixed(2);
         document.getElementById('deltaV').textContent = `${totalDeltaV.toFixed(0)} m/s`;
+        
+        // 更新燃料显示
+        if (document.getElementById('liquidFuel')) {
+            document.getElementById('liquidFuel').textContent = totalLiquidFuel.toFixed(1);
+        }
+        if (document.getElementById('oxidizer')) {
+            document.getElementById('oxidizer').textContent = totalOxidizer.toFixed(1);
+        }
+        
+        console.log(`燃料状态 - 液体燃料: ${totalLiquidFuel.toFixed(1)}, 氧化剂: ${totalOxidizer.toFixed(1)}, 燃料罐数量: ${fuelTanks.length}`);
     }
 
     // 更新分级信息
@@ -231,14 +253,43 @@ class LaunchPad {
         const stagingInfo = this.assembly.getStagingInfo();
         stageList.innerHTML = '';
 
+        console.log('发射台分级信息:', stagingInfo);
+
         if (stagingInfo.length === 0) {
-            stageList.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">无分级信息</div>';
+            stageList.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">单级火箭<br>无分级信息</div>';
             return;
         }
 
-        stagingInfo.forEach((stage, index) => {
+        // 创建一个完整的分级列表，包括最后一级（没有分离器的级）
+        const completeStages = [...stagingInfo];
+        
+        // 如果有分级，最后一级是剩余的所有部件
+        if (stagingInfo.length > 0) {
+            const lastStageInfo = stagingInfo[stagingInfo.length - 1];
+            if (lastStageInfo.upperStage && lastStageInfo.upperStage.length > 0) {
+                const finalStageEngines = lastStageInfo.upperStage.filter(p => p.data.type === 'engine');
+                const finalStageMass = this.calculateFinalStageMass(lastStageInfo.upperStage);
+                
+                completeStages.push({
+                    stage: stagingInfo.length + 1,
+                    decoupler: null,
+                    partsCount: lastStageInfo.upperStage.length,
+                    mass: finalStageMass,
+                    deltaV: 0, // 最后一级的Delta-V需要单独计算
+                    engines: finalStageEngines,
+                    upperStage: lastStageInfo.upperStage,
+                    lowerStage: []
+                });
+            }
+        }
+
+        completeStages.forEach((stage, index) => {
             const stageElement = document.createElement('div');
             stageElement.className = `stage-item ${index === 0 ? 'active' : ''}`;
+            stageElement.id = `stage-${index}`;
+            
+            // 计算引擎数量 - 每级显示其自己的引擎
+            const engineCount = stage.engines ? stage.engines.length : 0;
             
             stageElement.innerHTML = `
                 <div class="stage-header">
@@ -249,10 +300,28 @@ class LaunchPad {
                     <span>质量: ${stage.mass.toFixed(1)}t</span>
                     <span>ΔV: ${stage.deltaV.toFixed(0)}m/s</span>
                 </div>
+                <div class="stage-engines">
+                    <span>引擎: ${engineCount}</span>
+                    <span>${stage.decoupler ? '有分离器' : '无分离器'}</span>
+                </div>
             `;
             
             stageList.appendChild(stageElement);
         });
+    }
+
+    // 计算最终级的质量
+    calculateFinalStageMass(parts) {
+        let totalMass = 0;
+        parts.forEach(part => {
+            totalMass += part.data.mass;
+            // 添加燃料质量
+            if (part.fuelStatus) {
+                totalMass += (part.fuelStatus.liquid_fuel * 0.005) + 
+                           (part.fuelStatus.oxidizer * 0.0055);
+            }
+        });
+        return totalMass;
     }
 
     // 更新控制按钮状态
@@ -285,7 +354,7 @@ class LaunchPad {
     startCountdown() {
         if (this.countdown >= 0 || this.isLaunched) return;
 
-        this.countdown = 10; // 10秒倒计时
+        this.countdown = 3; // 3秒倒计时
         const countdownText = document.getElementById('countdownText');
         const countdownNumber = document.getElementById('countdownNumber');
 
@@ -417,7 +486,17 @@ function abortLaunch() {
 
 function activateNextStage() {
     if (window.launchPad && window.launchPad.simulation) {
-        window.launchPad.simulation.activateNextStage();
+        const success = window.launchPad.simulation.activateNextStage();
+        
+        if (!success) {
+            if (typeof showNotification === 'function') {
+                showNotification('分级失败', '没有更多分级可以激活', 'warning');
+            }
+        }
+    } else {
+        if (typeof showNotification === 'function') {
+            showNotification('分级失败', '火箭尚未发射', 'warning');
+        }
     }
 }
 
