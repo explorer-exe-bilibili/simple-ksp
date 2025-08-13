@@ -431,7 +431,7 @@ class LaunchPad {
         this.updateControlButtons();
 
         setTimeout(() => {
-            if (countdownText) countdownText.textContent = '飞行中';
+            if (countdownText) countdownText.textContent = window.i18n ? window.i18n.t('launchPad.status.flying') : '飞行中';
             if (countdownNumber) countdownNumber.textContent = '';
         }, 3000);
     }
@@ -535,6 +535,39 @@ function activateNextStage() {
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
     window.launchPad = new LaunchPad();
+});
+
+// 监听 i18n 准备就绪事件
+document.addEventListener('i18nReady', function() {
+    if (window.launchPad) {
+        // 在 i18n 系统准备好后更新所有动态内容
+        setTimeout(() => {
+            window.launchPad.updateStagingInfo();
+            window.launchPad.updateControlButtons();
+            // 更新火箭名称显示
+            const rocketNameElement = document.getElementById('rocketName');
+            if (rocketNameElement && window.launchPad.assembly) {
+                rocketNameElement.textContent = window.launchPad.assembly.name || 
+                    (window.i18n ? window.i18n.t('rocketBuilder.infoPanel.unnamed') : '未命名载具');
+            }
+        }, 100); // 短暂延迟确保 DOM 更新完成
+    }
+});
+
+// 监听语言变更事件，更新动态内容
+window.addEventListener('languageChanged', function() {
+    if (window.launchPad) {
+        // 更新分级信息显示
+        window.launchPad.updateStagingInfo();
+        // 更新控制按钮文本
+        window.launchPad.updateControlButtons();
+        // 更新火箭名称显示
+        const rocketNameElement = document.getElementById('rocketName');
+        if (rocketNameElement && window.launchPad.assembly) {
+            rocketNameElement.textContent = window.launchPad.assembly.name || 
+                (window.i18n ? window.i18n.t('rocketBuilder.infoPanel.unnamed') : '未命名载具');
+        }
+    }
 });
 
 // 导出供其他模块使用
