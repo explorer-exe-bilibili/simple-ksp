@@ -8,8 +8,55 @@ class LaunchPad {
         this.countdown = -1;
         this.countdownTimer = null;
         
+        // 节流阀控制
+        this.throttle = 0; // 节流阀设置 (0-100%)
+        this.isDraggingThrottle = false;
+        this.throttleBar = null;
+        this.throttleFill = null;
+        this.throttleHandle = null;
+        
+        // 键盘状态标志
+        this.keyStates = {
+            a: false,      // 左转
+            d: false,      // 右转
+            shift: false,  // 增加节流阀
+            ctrl: false    // 减少节流阀
+        };
+        
+        // 连续输入定时器
+        this.keyInputTimer = null;
+        
+        // 触屏控制相关
+        this.touchSupport = this.detectTouchSupport();
+        this.touchThrottleDragging = false;
+        this.touchSteeringActive = false;
+        
         this.initializeUI();
         this.loadRocketData();
+        
+        // 确保页面有焦点以接收键盘事件
+        window.focus();
+        
+        // 页面失去焦点时清理按键状态
+        window.addEventListener('blur', () => {
+            this.clearKeyStates();
+        });
+        
+        // 页面卸载时清理定时器
+        window.addEventListener('beforeunload', () => {
+            this.stopContinuousInput();
+        });
+    }
+    
+    // 清理按键状态
+    clearKeyStates() {
+        this.keyStates = {
+            a: false,
+            d: false,
+            shift: false,
+            ctrl: false
+        };
+        this.stopContinuousInput();
     }
 
     // 初始化UI
@@ -19,6 +66,17 @@ class LaunchPad {
         
         // 初始化控制按钮状态
         this.updateControlButtons();
+        
+        // 初始化节流阀控制
+        this.initializeThrottleControl();
+        
+        // 初始化键盘控制
+        this.initializeKeyboardControls();
+        
+        // 初始化触屏控制
+        if (this.touchSupport) {
+            this.initializeTouchControls();
+        }
     }
 
     // 从localStorage加载火箭数据
@@ -105,6 +163,22 @@ class LaunchPad {
         
         if (!display) return;
         
+        // 如果火箭已坠毁，不显示火箭
+        if (this.simulation && this.simulation.crashed) {
+            // 保持显示区域，但清空内容（爆炸效果可能还在显示）
+            const rocketContainer = display.querySelector('.rocket-container');
+            if (rocketContainer) {
+                rocketContainer.classList.add('rocket-crashed');
+            }
+            return;
+        }
+        
+        // 如果火箭已着陆，显示着陆状态
+        if (this.simulation && this.simulation.landed) {
+            // 火箭着陆后仍然显示，但可以添加着陆标识
+            // 继续正常显示流程，只是状态不同
+        }
+        
         // 清空显示区域
         display.innerHTML = '';
         
@@ -122,6 +196,35 @@ class LaunchPad {
         rocketContainer.className = 'rocket-container';
         rocketContainer.style.position = 'relative';
         rocketContainer.style.transform = `scale(${scale})`;
+        
+        // 如果火箭已着陆且高度为0，添加着陆样式和标识
+        if (this.simulation && this.simulation.landed && this.simulation.altitude <= 0) {
+            rocketContainer.classList.add('rocket-landed');
+            
+            // 创建着陆标识
+            const landingBadge = document.createElement('div');
+            landingBadge.className = 'landing-badge';
+            landingBadge.textContent = window.i18n ? 
+                `✅ ${window.i18n.t('launchPad.status.landed')}` : 
+                '✅ 已着陆';
+            landingBadge.style.cssText = `
+                position: absolute;
+                top: -30px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 255, 0, 0.8);
+                color: white;
+                padding: 5px 10px;
+                border-radius: 15px;
+                font-size: 0.8em;
+                font-weight: bold;
+                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+                animation: landingBadge 2s ease-in-out infinite alternate;
+                z-index: 1001;
+                pointer-events: none;
+            `;
+            rocketContainer.appendChild(landingBadge);
+        }
         
         // 渲染只与根部件连通的部件
         const connectedPartIds = this.assembly.getConnectedParts();
@@ -275,6 +378,84 @@ class LaunchPad {
         console.log(`连通部件统计 - 总部件: ${this.assembly.parts.length}, 连通部件: ${connectedPartIds.length}, 连通引擎: ${connectedEngines.length}`);
     }
 
+    // 启动飞行数据更新循环
+    startFlightDataUpdate() {
+        this.stopFlightDataUpdate(); // 确保清除之前的循环
+        
+        this.flightDataUpdateTimer = setInterval(() => {
+            if (this.simulation) {
+                // 只有坠毁时才停止更新，着陆时继续更新以便检测重新起飞
+                if (this.simulation.crashed) {
+                    this.stopFlightDataUpdate();
+                    return;
+                }
+                
+                // 更新飞行数据显示
+                this.updateLiveFlightData();
+                // 更新火箭显示（处理坠毁和着陆状态）
+                this.displayRocket();
+            }
+        }, 100); // 每100ms更新一次
+    }
+    
+    // 停止飞行数据更新循环
+    stopFlightDataUpdate() {
+        if (this.flightDataUpdateTimer) {
+            clearInterval(this.flightDataUpdateTimer);
+            this.flightDataUpdateTimer = null;
+        }
+    }
+    
+    // 更新实时飞行数据
+    updateLiveFlightData() {
+        if (!this.simulation) return;
+        
+        // 更新实时数据
+        document.getElementById('altitude').textContent = `${this.simulation.altitude.toFixed(1)} m`;
+        document.getElementById('velocity').textContent = `${this.simulation.velocity.toFixed(1)} m/s`;
+        document.getElementById('acceleration').textContent = `${this.simulation.acceleration.toFixed(2)} m/s²`;
+        document.getElementById('mass').textContent = `${this.simulation.mass.toFixed(2)} t`;
+        
+        // 计算当前推重比
+        const totalThrust = this.simulation.calculateThrust() / 1000; // 转换为kN
+        const twr = this.simulation.mass > 0 ? (totalThrust / (this.simulation.mass * 9.81)) : 0;
+        document.getElementById('twr').textContent = twr.toFixed(2);
+        
+        // 计算剩余Delta-V（简化计算）
+        const stagingInfo = this.assembly.getStagingInfo();
+        const remainingDeltaV = stagingInfo.slice(this.simulation.currentStage).reduce((sum, stage) => sum + stage.deltaV, 0);
+        document.getElementById('deltaV').textContent = `${remainingDeltaV.toFixed(0)} m/s`;
+        
+        // 更新当前级燃料显示
+        this.updateCurrentStageFuel();
+    }
+    
+    // 更新当前级燃料显示
+    updateCurrentStageFuel() {
+        if (!this.simulation) return;
+        
+        const currentStageParts = this.assembly.parts.filter(part => 
+            this.simulation.isPartInCurrentStage && this.simulation.isPartInCurrentStage(part)
+        );
+        
+        let totalLiquidFuel = 0;
+        let totalOxidizer = 0;
+        
+        currentStageParts.forEach(part => {
+            if (part.fuelStatus) {
+                totalLiquidFuel += part.fuelStatus.liquid_fuel || 0;
+                totalOxidizer += part.fuelStatus.oxidizer || 0;
+            }
+        });
+        
+        if (document.getElementById('liquidFuel')) {
+            document.getElementById('liquidFuel').textContent = totalLiquidFuel.toFixed(1);
+        }
+        if (document.getElementById('oxidizer')) {
+            document.getElementById('oxidizer').textContent = totalOxidizer.toFixed(1);
+        }
+    }
+
     // 更新分级信息
     updateStagingInfo() {
         const stageList = document.getElementById('stageList');
@@ -426,7 +607,11 @@ class LaunchPad {
 
         // 启动物理模拟
         this.simulation = new LaunchSimulation(this.assembly);
+        this.simulation.setThrottle(this.throttle / 100); // 设置初始节流阀值
         this.simulation.start();
+
+        // 启动飞行数据更新循环
+        this.startFlightDataUpdate();
 
         this.updateControlButtons();
 
@@ -442,6 +627,9 @@ class LaunchPad {
             clearInterval(this.countdownTimer);
             this.countdownTimer = null;
         }
+
+        // 停止飞行数据更新
+        this.stopFlightDataUpdate();
 
         if (this.simulation) {
             this.simulation.stop();
@@ -497,9 +685,499 @@ class LaunchPad {
             }
         }, 1000); // 1秒后隐藏
     }
+    
+    // ========== 节流阀控制功能 ==========
+    
+    // 初始化节流阀控制
+    initializeThrottleControl() {
+        this.throttleSlider = document.getElementById('throttleSliderHorizontal');
+        this.throttleFill = document.getElementById('throttleFill');
+        this.throttleHandle = document.getElementById('throttleHandle');
+        
+        if (!this.throttleSlider || !this.throttleFill || !this.throttleHandle) {
+            console.log('节流阀控制元素未找到，跳过初始化');
+            return;
+        }
+        
+        // 绑定鼠标事件
+        this.throttleSlider.addEventListener('mousedown', this.handleThrottleSliderClick.bind(this));
+        this.throttleHandle.addEventListener('mousedown', this.handleThrottleHandleDrag.bind(this));
+        
+        // 绑定全局鼠标事件（用于拖拽）
+        document.addEventListener('mousemove', this.handleThrottleDrag.bind(this));
+        document.addEventListener('mouseup', this.handleThrottleDragEnd.bind(this));
+    }
+    
+    // 初始化键盘控制
+    initializeKeyboardControls() {
+        // 绑定键盘快捷键
+        document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        document.addEventListener('keyup', this.handleKeyUp.bind(this));
+        
+        // 防止页面失去焦点时的问题
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.clearKeyStates();
+            }
+        });
+        
+        // 初始化显示
+        this.updateThrottleDisplay();
+    }
+    
+    // 处理节流阀滑杆点击
+    handleThrottleSliderClick(event) {
+        if (this.isDraggingThrottle) return;
+        
+        const rect = this.throttleSlider.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const percentage = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+        
+        this.setThrottle(percentage);
+    }
+    
+    // 处理节流阀手柄拖拽开始
+    handleThrottleHandleDrag(event) {
+        event.preventDefault();
+        this.isDraggingThrottle = true;
+        this.throttleHandle.style.cursor = 'grabbing';
+        
+        // 防止文本选择
+        document.body.style.userSelect = 'none';
+    }
+    
+    // 处理节流阀拖拽
+    handleThrottleDrag(event) {
+        if (!this.isDraggingThrottle) return;
+        
+        const rect = this.throttleSlider.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const percentage = Math.max(0, Math.min(100, (mouseX / rect.width) * 100));
+        
+        this.setThrottle(percentage);
+    }
+    
+    // 处理节流阀拖拽结束
+    handleThrottleDragEnd() {
+        if (this.isDraggingThrottle) {
+            this.isDraggingThrottle = false;
+            this.throttleHandle.style.cursor = 'grab';
+            document.body.style.userSelect = '';
+        }
+    }
+    
+    // 处理按键按下事件
+    handleKeyDown(event) {
+        // 忽略在输入框中的按键
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        // 防止重复触发
+        if (event.repeat) {
+            return;
+        }
+        
+        const key = event.key.toLowerCase();
+        let handled = false;
+        
+        // 更新按键状态
+        switch (key) {
+            case 'a':
+                this.keyStates.a = true;
+                handled = true;
+                break;
+            case 'd':
+                this.keyStates.d = true;
+                handled = true;
+                break;
+            case 'shift':
+                this.keyStates.shift = true;
+                handled = true;
+                break;
+            case 'control':
+                this.keyStates.ctrl = true;
+                handled = true;
+                break;
+            // 一次性按键（保持原有功能）
+            case 'z':
+                // Z键：最大节流阀
+                this.setThrottle(100);
+                handled = true;
+                break;
+            case 'x':
+                // X键：关闭节流阀
+                this.setThrottle(0);
+                handled = true;
+                break;
+            case 's':
+                // S键：重置转向
+                if (this.simulation && this.simulation.isRunning) {
+                    this.simulation.resetSteering();
+                }
+                handled = true;
+                break;
+        }
+        
+        if (handled) {
+            event.preventDefault();
+            
+            // 启动连续输入处理
+            if (!this.keyInputTimer) {
+                this.startContinuousInput();
+            }
+        }
+    }
+    
+    // 处理按键释放事件
+    handleKeyUp(event) {
+        // 忽略在输入框中的按键
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        const key = event.key.toLowerCase();
+        let handled = false;
+        
+        // 更新按键状态
+        switch (key) {
+            case 'a':
+                this.keyStates.a = false;
+                handled = true;
+                break;
+            case 'd':
+                this.keyStates.d = false;
+                handled = true;
+                break;
+            case 'shift':
+                this.keyStates.shift = false;
+                handled = true;
+                break;
+            case 'control':
+                this.keyStates.ctrl = false;
+                handled = true;
+                break;
+        }
+        
+        if (handled) {
+            event.preventDefault();
+            
+            // 检查是否还有按键按下，如果没有则停止连续输入
+            const hasActiveKeys = Object.values(this.keyStates).some(state => state);
+            if (!hasActiveKeys && this.keyInputTimer) {
+                this.stopContinuousInput();
+            }
+        }
+    }
+    
+    // 启动连续输入处理
+    startContinuousInput() {
+        this.keyInputTimer = setInterval(() => {
+            this.processContinuousInput();
+        }, 50); // 每50ms处理一次，提供流畅的控制
+    }
+    
+    // 停止连续输入处理
+    stopContinuousInput() {
+        if (this.keyInputTimer) {
+            clearInterval(this.keyInputTimer);
+            this.keyInputTimer = null;
+        }
+    }
+    
+    // 处理连续输入
+    processContinuousInput() {
+        // 转向控制
+        if (this.simulation && this.simulation.isRunning) {
+            if (this.keyStates.a) {
+                this.simulation.steerLeft();
+            }
+            if (this.keyStates.d) {
+                this.simulation.steerRight();
+            }
+        }
+        
+        // 节流阀控制
+        if (this.keyStates.shift && !this.keyStates.ctrl) {
+            // Shift键：增加节流阀
+            this.setThrottle(Math.min(100, this.throttle + 1));
+        } else if (this.keyStates.ctrl && !this.keyStates.shift) {
+            // Ctrl键：减少节流阀
+            this.setThrottle(Math.max(0, this.throttle - 1));
+        }
+    }
+    
+    // 设置节流阀值
+    setThrottle(percentage) {
+        this.throttle = Math.max(0, Math.min(100, percentage));
+        this.updateThrottleDisplay();
+        this.updateEngineStatus();
+        this.updatePresetButtons();
+        
+        // 如果正在飞行，更新推力
+        if (this.simulation && this.simulation.isRunning) {
+            this.simulation.setThrottle(this.throttle / 100);
+        }
+    }
+    
+    // 更新节流阀显示
+    updateThrottleDisplay() {
+        if (!this.throttleFill || !this.throttleHandle) return;
+        
+        const percentage = this.throttle;
+        
+        // 更新填充条（水平）
+        this.throttleFill.style.width = `${percentage}%`;
+        
+        // 更新手柄位置（水平）
+        this.throttleHandle.style.left = `${percentage}%`;
+        
+        // 更新百分比文本
+        const throttlePercentageElement = document.getElementById('throttlePercentage');
+        if (throttlePercentageElement) {
+            throttlePercentageElement.textContent = `${Math.round(percentage)}%`;
+        }
+    }
+    
+    // 更新引擎状态显示
+    updateEngineStatus() {
+        if (!this.assembly) return;
+        
+        const engines = this.assembly.parts.filter(part => part.data.type === 'engine');
+        const activeEngineCount = engines.length;
+        const totalThrust = engines.reduce((sum, engine) => {
+            return sum + (engine.data.thrust || 0) * (this.throttle / 100);
+        }, 0);
+        
+        // 更新活跃引擎数量
+        const activeEngineCountElement = document.getElementById('activeEngineCount');
+        if (activeEngineCountElement) {
+            activeEngineCountElement.textContent = activeEngineCount.toString();
+        }
+        
+        // 更新当前推力
+        const currentThrustElement = document.getElementById('currentThrust');
+        if (currentThrustElement) {
+            currentThrustElement.textContent = `${Math.round(totalThrust)} kN`;
+        }
+    }
+    
+    // 更新预设按钮状态
+    updatePresetButtons() {
+        const presetButtons = document.querySelectorAll('.preset-btn');
+        presetButtons.forEach(button => {
+            const preset = parseInt(button.textContent);
+            if (Math.abs(this.throttle - preset) < 1) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+        });
+    }
+    
+    // 获取当前推力比
+    getCurrentTWR() {
+        if (!this.assembly) return 0;
+        
+        const engines = this.assembly.parts.filter(part => part.data.type === 'engine');
+        const totalThrust = engines.reduce((sum, engine) => {
+            return sum + (engine.data.thrust || 0) * (this.throttle / 100);
+        }, 0) * 1000; // 转换为牛顿
+        
+        const totalMass = this.assembly.getTotalMass() * 1000; // 转换为千克
+        const weight = totalMass * 9.81; // 重力
+        
+        return totalThrust / weight;
+    }
+    
+    // 检测触屏支持
+    detectTouchSupport() {
+        return 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+    }
+    
+    // 初始化触屏控制
+    initializeTouchControls() {
+        const touchPanel = document.getElementById('touchControlPanel');
+        if (touchPanel) {
+            touchPanel.classList.add('active');
+        }
+        
+        // 初始化转向控制
+        this.initializeTouchSteering();
+        
+        // 初始化节流阀控制
+        this.initializeTouchThrottle();
+        
+        // 初始化主要控制按钮
+        this.initializeTouchMainControls();
+    }
+    
+    // 初始化触屏转向控制
+    initializeTouchSteering() {
+        const steeringPad = document.getElementById('touchSteeringPad');
+        const steeringIndicator = document.getElementById('touchSteeringIndicator');
+        
+        if (!steeringPad || !steeringIndicator) return;
+        
+        let startX = 0, startY = 0;
+        let padRect = null;
+        
+        const handleTouchStart = (e) => {
+            e.preventDefault();
+            this.touchSteeringActive = true;
+            padRect = steeringPad.getBoundingClientRect();
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
+        };
+        
+        const handleTouchMove = (e) => {
+            if (!this.touchSteeringActive || !padRect) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const centerX = padRect.left + padRect.width / 2;
+            const centerY = padRect.top + padRect.height / 2;
+            
+            const deltaX = touch.clientX - centerX;
+            const deltaY = touch.clientY - centerY;
+            
+            const maxRadius = padRect.width / 2 - 15;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            let finalX = deltaX;
+            let finalY = deltaY;
+            
+            if (distance > maxRadius) {
+                finalX = (deltaX / distance) * maxRadius;
+                finalY = (deltaY / distance) * maxRadius;
+            }
+            
+            // 计算转向角度（只考虑水平方向）
+            const angle = Math.max(-45, Math.min(45, (finalX / maxRadius) * 45));
+            
+            // 更新指示器位置
+            steeringIndicator.style.transform = `translate(-50%, -50%) translate(${finalX}px, ${finalY}px)`;
+            
+            // 更新角度显示
+            document.getElementById('touchSteeringAngle').textContent = `${Math.round(angle)}°`;
+            
+            // 应用转向
+            if (this.simulation && this.simulation.isRunning) {
+                this.simulation.setSteering(angle);
+            }
+        };
+        
+        const handleTouchEnd = (e) => {
+            e.preventDefault();
+            this.touchSteeringActive = false;
+            
+            // 回弹到中心
+            steeringIndicator.style.transform = 'translate(-50%, -50%)';
+            document.getElementById('touchSteeringAngle').textContent = '0°';
+            
+            // 重置转向
+            if (this.simulation && this.simulation.isRunning) {
+                this.simulation.setSteering(0);
+            }
+        };
+        
+        steeringPad.addEventListener('touchstart', handleTouchStart, { passive: false });
+        steeringPad.addEventListener('touchmove', handleTouchMove, { passive: false });
+        steeringPad.addEventListener('touchend', handleTouchEnd, { passive: false });
+        steeringPad.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    }
+    
+    // 初始化触屏节流阀控制
+    initializeTouchThrottle() {
+        const throttleSlider = document.getElementById('touchThrottleSlider');
+        const throttleHandle = document.getElementById('touchThrottleHandle');
+        const throttleFill = document.getElementById('touchThrottleFill');
+        
+        if (!throttleSlider || !throttleHandle || !throttleFill) return;
+        
+        const handleTouchStart = (e) => {
+            e.preventDefault();
+            this.touchThrottleDragging = true;
+        };
+        
+        const handleTouchMove = (e) => {
+            if (!this.touchThrottleDragging) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const rect = throttleSlider.getBoundingClientRect();
+            const y = touch.clientY - rect.top;
+            const percentage = Math.max(0, Math.min(100, (1 - y / rect.height) * 100));
+            
+            this.updateTouchThrottle(percentage);
+        };
+        
+        const handleTouchEnd = (e) => {
+            e.preventDefault();
+            this.touchThrottleDragging = false;
+        };
+        
+        throttleSlider.addEventListener('touchstart', handleTouchStart, { passive: false });
+        throttleSlider.addEventListener('touchmove', handleTouchMove, { passive: false });
+        throttleSlider.addEventListener('touchend', handleTouchEnd, { passive: false });
+        throttleSlider.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    }
+    
+    // 更新触屏节流阀显示
+    updateTouchThrottle(percentage) {
+        this.setThrottle(percentage);
+        
+        const throttleHandle = document.getElementById('touchThrottleHandle');
+        const throttleFill = document.getElementById('touchThrottleFill');
+        const throttleValue = document.getElementById('touchThrottleValue');
+        
+        if (throttleHandle) {
+            throttleHandle.style.bottom = `${percentage}%`;
+        }
+        
+        if (throttleFill) {
+            throttleFill.style.height = `${percentage}%`;
+        }
+        
+        if (throttleValue) {
+            throttleValue.textContent = `${Math.round(percentage)}%`;
+        }
+    }
+    
+    // 初始化触屏主要控制按钮
+    initializeTouchMainControls() {
+        const launchBtn = document.getElementById('touchLaunchBtn');
+        const stageBtn = document.getElementById('touchStageBtn');
+        const abortBtn = document.getElementById('touchAbortBtn');
+        
+        if (launchBtn) {
+            launchBtn.addEventListener('click', () => {
+                startLaunch();
+            });
+        }
+        
+        if (stageBtn) {
+            stageBtn.addEventListener('click', () => {
+                activateNextStage();
+            });
+        }
+        
+        if (abortBtn) {
+            abortBtn.addEventListener('click', () => {
+                abortLaunch();
+            });
+        }
+    }
 }
 
-// 全局函数
+// 全局节流阀控制函数
+function setThrottle(percentage) {
+    if (window.launchPad) {
+        window.launchPad.setThrottle(percentage);
+    }
+}
+
 function goBackToAssembly() {
     window.location.href = 'rocket-builder.html';
 }
@@ -522,12 +1200,16 @@ function activateNextStage() {
         
         if (!success) {
             if (typeof showNotification === 'function') {
-                showNotification('notifications.staging.failed', 'notifications.staging.noMoreStages', 'warning');
+                const title = window.i18n ? window.i18n.t('launchPad.notifications.staging.failed') : '分级失败';
+                const message = window.i18n ? window.i18n.t('launchPad.notifications.staging.noMoreStages') : '没有更多级可分离';
+                showNotification(title, message, 'warning');
             }
         }
     } else {
         if (typeof showNotification === 'function') {
-            showNotification('notifications.staging.failed', 'notifications.staging.notLaunched', 'warning');
+            const title = window.i18n ? window.i18n.t('launchPad.notifications.staging.failed') : '分级失败';
+            const message = window.i18n ? window.i18n.t('launchPad.notifications.staging.notLaunched') : '火箭尚未发射';
+            showNotification(title, message, 'warning');
         }
     }
 }

@@ -1760,7 +1760,11 @@ class RocketBuilder {
         
         // 显示通知
         if (typeof showNotification === 'function') {
-            showNotification('部件添加', `${part.name}已添加到装配区中心`, 'success');
+            const title = window.i18n ? window.i18n.t('rocketBuilder.alerts.partAdded') : '部件添加';
+            const message = window.i18n ? 
+                window.i18n.t('rocketBuilder.alerts.partAddedMessage', { name: part.name }) :
+                `${part.name}已添加到装配区中心`;
+            showNotification(title, message, 'success');
         }
         
         console.log('自动添加部件到中心:', part.name, '位置:', centerPosition);
@@ -1861,7 +1865,11 @@ class RocketBuilder {
             this.updateUI();
             
             if (typeof showNotification === 'function') {
-                showNotification('分离器测试', `${result.decoupler.data.name} 分离测试完成`, 'success');
+                const title = window.i18n ? window.i18n.t('rocketBuilder.alerts.decouplerTest') : '分离器测试';
+                const message = window.i18n ? 
+                    window.i18n.t('rocketBuilder.alerts.decouplerTestComplete', { name: result.decoupler.data.name }) :
+                    `${result.decoupler.data.name} 分离测试完成`;
+                showNotification(title, message, 'success');
             }
         } else {
             const failMessage = window.i18n ? 
@@ -1912,7 +1920,9 @@ class RocketBuilder {
     launchRocket() {
         if (this.assembly.getPartCount() === 0) {
             if (typeof showNotification === 'function') {
-                showNotification('无法发射', '请先设计一个载具！', 'error');
+                const title = window.i18n ? window.i18n.t('rocketBuilder.alerts.cannotLaunch') : '无法发射';
+                const message = window.i18n ? window.i18n.t('rocketBuilder.alerts.noVehicle') : '请先设计一个载具！';
+                showNotification(title, message, 'error');
             } else {
                 const noVehicleMessage = window.i18n ? 
                     window.i18n.t('rocketBuilder.alerts.noVehicle') : 
@@ -1925,7 +1935,9 @@ class RocketBuilder {
         const engines = this.assembly.parts.filter(p => p.data.type === 'engine');
         if (engines.length === 0) {
             if (typeof showNotification === 'function') {
-                showNotification('无法发射', '载具需要至少一个引擎才能发射！', 'error');
+                const title = window.i18n ? window.i18n.t('rocketBuilder.alerts.cannotLaunch') : '无法发射';
+                const message = window.i18n ? window.i18n.t('rocketBuilder.alerts.noEngine') : '载具需要至少一个引擎才能发射！';
+                showNotification(title, message, 'error');
             } else {
                 const noEngineMessage = window.i18n ? 
                     window.i18n.t('rocketBuilder.alerts.noEngine') : 
@@ -1958,8 +1970,11 @@ class RocketBuilder {
             
             // 显示准备发射的信息
             if (typeof showNotification === 'function') {
-                showNotification('准备发射', 
-                    `载具 "${this.assembly.name}" 已准备就绪！正在前往发射台...`, 'success');
+                const title = window.i18n ? window.i18n.t('rocketBuilder.alerts.prepareLaunch') : '准备发射';
+                const message = window.i18n ? 
+                    window.i18n.t('rocketBuilder.alerts.vehicleReady', { name: this.assembly.name }) :
+                    `载具 "${this.assembly.name}" 已准备就绪！正在前往发射台...`;
+                showNotification(title, message, 'success');
             }
             
             // 短暂延迟后跳转到发射页面
@@ -1970,7 +1985,9 @@ class RocketBuilder {
         } catch (error) {
             console.error('保存火箭数据失败:', error);
             if (typeof showNotification === 'function') {
-                showNotification('保存失败', '无法保存火箭数据，请重试', 'error');
+                const title = window.i18n ? window.i18n.t('rocketBuilder.alerts.saveFailed') : '保存失败';
+                const message = window.i18n ? window.i18n.t('rocketBuilder.alerts.saveDataFailed') : '无法保存火箭数据，请重试';
+                showNotification(title, message, 'error');
             } else {
                 const saveFailedMessage = window.i18n ? 
                     window.i18n.t('rocketBuilder.alerts.saveDataFailed') : 

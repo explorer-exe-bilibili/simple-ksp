@@ -224,6 +224,515 @@
     margin: 12px 0;
 }
 
+/* 操作说明样式 */
+.controls-hint {
+    margin-top: 10px;
+}
+
+.hint-title {
+    font-size: 0.9em;
+    color: #87CEEB;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.hint-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 0.75em;
+}
+
+.hint-keys {
+    background: rgba(59, 130, 246, 0.8);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.7em;
+    min-width: 40px;
+    text-align: center;
+}
+
+.hint-desc {
+    color: rgba(255, 255, 255, 0.8);
+    flex: 1;
+    text-align: right;
+}
+
+/* 节流阀控制面板 - 紧凑版本 */
+.throttle-control-panel.compact {
+    position: absolute;
+    top: 80px;
+    left: 340px;
+    width: 600px;
+    height: 80px;
+    background: rgba(0, 0, 0, 0.85);
+    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 15px 20px;
+    z-index: 100;
+    color: white;
+    display: flex;
+    align-items: center;
+}
+
+.throttle-compact-container {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    height: 100%;
+}
+
+.throttle-label-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 120px;
+}
+
+.throttle-label-section h4 {
+    margin: 0 0 5px 0;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.throttle-value-display {
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.throttle-percentage {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #4ade80;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+
+.throttle-slider-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-width: 300px;
+}
+
+.throttle-slider-horizontal {
+    position: relative;
+    height: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.throttle-track {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.throttle-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0%;
+    background: linear-gradient(to right,
+        #4ade80 0%,
+        #22d3ee 50%,
+        #fbbf24 75%,
+        #f87171 100%);
+    border-radius: 3px;
+    transition: width 0.2s ease;
+}
+
+.throttle-handle {
+    position: absolute;
+    top: 50%;
+    left: 0%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    background: #ffffff;
+    border: 2px solid #333;
+    border-radius: 50%;
+    cursor: grab;
+    transition: left 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.throttle-handle:active {
+    cursor: grabbing;
+    background: #f0f0f0;
+}
+
+.throttle-marks-horizontal {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2px;
+    padding: 0 8px;
+}
+
+.throttle-marks-horizontal .mark {
+    font-size: 0.7em;
+    color: rgba(255, 255, 255, 0.6);
+    position: relative;
+}
+
+.throttle-marks-horizontal .mark::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.throttle-controls-section {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 160px;
+}
+
+.throttle-keyboard-hint {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.7em;
+}
+
+/* 转向控制面板 */
+.steering-control-panel {
+    position: absolute;
+    top: 80px;
+    right: 260px; /* 在分级面板左边留出空间 */
+    width: 200px;
+    background: rgba(0, 0, 0, 0.85);
+    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    z-index: 100;
+    color: white;
+}
+
+.steering-control-panel .panel-header h4 {
+    margin: 0 0 15px 0;
+    font-size: 1em;
+    font-weight: 600;
+    color: #87CEEB;
+    text-align: center;
+}
+
+/* 转向导航条 */
+.steering-navigation {
+    margin-bottom: 15px;
+}
+
+.nav-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-bar {
+    position: relative;
+    width: 140px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.nav-center {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.nav-pointer {
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 16px;
+    background: #87CEEB;
+    border-radius: 50%;
+    border: 2px solid white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.nav-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 140px;
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.nav-label.center {
+    color: #87CEEB;
+    font-weight: bold;
+}
+
+/* 转向数值显示 */
+.steering-display {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+}
+
+.steering-value {
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.steering-value #steeringAngle {
+    color: #87CEEB;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+.steering-hint {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8em;
+}
+
+/* 触屏控制面板 */
+.touch-control-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    background: rgba(0, 0, 0, 0.9);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-top: 2px solid rgba(255, 255, 255, 0.1);
+    display: none; /* 默认隐藏，通过JavaScript检测触屏设备后显示 */
+    z-index: 1000;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.touch-control-panel.active {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+/* 触屏控制标题 */
+.touch-control-title {
+    color: #87CEEB;
+    font-size: 0.9em;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+/* 左侧转向控制区域 */
+.touch-steering-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.touch-steering-pad {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(135, 206, 235, 0.5);
+    border-radius: 50%;
+    margin: 10px 0;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.touch-steering-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+}
+
+.touch-steering-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px;
+    height: 24px;
+    background: #87CEEB;
+    border: 3px solid white;
+    border-radius: 50%;
+    transition: all 0.1s ease;
+    box-shadow: 0 0 10px rgba(135, 206, 235, 0.5);
+}
+
+.touch-angle-display {
+    color: #87CEEB;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+/* 右侧节流阀控制区域 */
+.touch-throttle-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.touch-throttle-slider {
+    position: relative;
+    width: 40px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    margin: 10px 0;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.touch-throttle-track {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    bottom: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.touch-throttle-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, #4CAF50, #8BC34A, #CDDC39);
+    border-radius: 15px;
+    height: 0%;
+    transition: height 0.1s ease;
+}
+
+.touch-throttle-handle {
+    position: absolute;
+    left: 50%;
+    bottom: 0%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 36px;
+    background: #87CEEB;
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: bottom 0.1s ease;
+}
+
+.touch-throttle-display {
+    color: #87CEEB;
+    font-size: 1.1em;
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+/* 中央主要控制按钮 */
+.touch-main-controls {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+.touch-main-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.touch-launch-btn {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.touch-stage-btn {
+    background: linear-gradient(135deg, #FF9800, #F57C00);
+    color: white;
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.touch-abort-btn {
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+.touch-main-btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.touch-btn-icon {
+    font-size: 1.5em;
+    margin-bottom: 4px;
+}
+
+.touch-btn-text {
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+/* 响应式设计 - 在大屏幕上隐藏触屏控制 */
+@media (min-width: 1024px) and (hover: hover) {
+    .touch-control-panel {
+        display: none !important;
+    }
+}
+
 /* 分级面板 */
 .staging-panel {
     position: absolute;
@@ -305,6 +814,116 @@
 .countdown-display {
     text-align: center;
     color: white;
+}
+
+.control-buttons-new {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    flex: 1;
+    justify-content: center;
+}
+
+/* 控制导航条样式 */
+.control-navigation {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.control-navigation .nav-indicator {
+    position: relative;
+}
+
+.control-navigation .nav-bar {
+    width: 80px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    position: relative;
+}
+
+.control-navigation .nav-center {
+    position: absolute;
+    left: 50%;
+    top: -2px;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 10px;
+    background: #00ff00;
+    border-radius: 1px;
+}
+
+.control-navigation .nav-pointer {
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 10px;
+    background: #ff6b35;
+    border-radius: 1.5px;
+    transition: left 0.1s ease;
+}
+
+.control-navigation .nav-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 80px;
+    margin-top: 5px;
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* 控制节流阀样式 */
+.control-throttle {
+    display: flex;
+    align-items: center;
+}
+
+.control-throttle .throttle-slider-horizontal {
+    width: 120px;
+    height: 20px;
+    position: relative;
+    cursor: pointer;
+}
+
+.control-throttle .throttle-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.control-throttle .throttle-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b35, #f7931e);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.1s ease;
+}
+
+.control-throttle .throttle-handle {
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border: 2px solid #ff6b35;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 0%;
+    transform: translate(-50%, -50%);
+    cursor: grab;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: left 0.1s ease;
+}
+
+.control-throttle .throttle-handle:active {
+    cursor: grabbing;
+    transform: translate(-50%, -50%) scale(1.1);
 }
 
 .countdown-text {
@@ -485,5 +1104,179 @@
     
     .launch-title {
         font-size: 1.2em;
+    }
+}
+
+/* 爆炸效果样式 */
+.explosion-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.explosion-effect {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, 
+        #ff6b00 0%, 
+        #ff4444 20%, 
+        #ffaa00 40%, 
+        #ff0000 60%, 
+        rgba(255, 0, 0, 0.3) 80%, 
+        transparent 100%);
+    border-radius: 50%;
+    animation: explode 1.5s ease-out;
+    position: relative;
+}
+
+.explosion-effect::before {
+    content: '';
+    position: absolute;
+    top: -25%;
+    left: -25%;
+    right: -25%;
+    bottom: -25%;
+    background: radial-gradient(circle, 
+        rgba(255, 255, 255, 0.8) 0%,
+        rgba(255, 200, 0, 0.6) 30%,
+        transparent 70%);
+    border-radius: 50%;
+    animation: flash 0.3s ease-out;
+}
+
+.explosion-effect::after {
+    content: '';
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    right: -10%;
+    bottom: -10%;
+    background: radial-gradient(circle, 
+        rgba(255, 100, 0, 0.7) 0%,
+        rgba(255, 50, 0, 0.4) 50%,
+        transparent 100%);
+    border-radius: 50%;
+    animation: shockwave 1s ease-out;
+}
+
+.explosion-particles {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.explosion-particle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #ffaa00;
+    border-radius: 50%;
+    animation: particle-fly 2s ease-out forwards;
+}
+
+.explosion-particle:nth-child(1) { transform: rotate(0deg); background: #ff4444; }
+.explosion-particle:nth-child(2) { transform: rotate(30deg); background: #ff6600; }
+.explosion-particle:nth-child(3) { transform: rotate(60deg); background: #ffaa00; }
+.explosion-particle:nth-child(4) { transform: rotate(90deg); background: #ff8800; }
+.explosion-particle:nth-child(5) { transform: rotate(120deg); background: #ff4444; }
+.explosion-particle:nth-child(6) { transform: rotate(150deg); background: #ff6600; }
+.explosion-particle:nth-child(7) { transform: rotate(180deg); background: #ffaa00; }
+.explosion-particle:nth-child(8) { transform: rotate(210deg); background: #ff8800; }
+.explosion-particle:nth-child(9) { transform: rotate(240deg); background: #ff4444; }
+.explosion-particle:nth-child(10) { transform: rotate(270deg); background: #ff6600; }
+.explosion-particle:nth-child(11) { transform: rotate(300deg); background: #ffaa00; }
+.explosion-particle:nth-child(12) { transform: rotate(330deg); background: #ff8800; }
+
+@keyframes explode {
+    0% {
+        transform: scale(0);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+@keyframes flash {
+    0% {
+        opacity: 1;
+        transform: scale(0);
+    }
+    30% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.2);
+    }
+}
+
+@keyframes shockwave {
+    0% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(3);
+    }
+}
+
+@keyframes particle-fly {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-100px);
+    }
+}
+
+.rocket-crashed {
+    display: none !important;
+}
+
+/* 着陆状态样式 */
+.rocket-landed {
+    opacity: 0.8;
+    filter: grayscale(20%);
+}
+
+.rocket-landed::after {
+    /* 文本将通过JavaScript动态设置 */
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 255, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+    animation: landingBadge 2s ease-in-out infinite alternate;
+    z-index: 1001;
+}
+
+@keyframes landingBadge {
+    0% {
+        opacity: 0.7;
+        transform: translateX(-50%) translateY(0px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-5px);
     }
 }

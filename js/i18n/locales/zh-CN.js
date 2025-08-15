@@ -182,7 +182,9 @@ export default {
         flightData: {
             title: '飞行数据',
             altitude: '高度',
-            velocity: '速度',
+            velocity: '垂直速度',
+            horizontalVelocity: '水平速度',
+            horizontalPosition: '水平位置',
             acceleration: '加速度',
             mass: '质量',
             fuel: '液体燃料',
@@ -190,6 +192,13 @@ export default {
             throttle: '推力',
             deltaV: '剩余Delta-V',
             stage: '级数'
+        },
+        controlsHint: {
+            title: '操作说明',
+            steering: '左右转向',
+            throttleAdjust: '±1% 推力',
+            throttleMinMax: '100%/0% 推力',
+            stage: '分离'
         },
         controls: {
             title: '飞行控制',
@@ -202,13 +211,42 @@ export default {
             sas: '姿态稳定系统',
             rcs: '反应控制系统'
         },
+        throttle: {
+            title: '推力控制',
+            current: '当前推力',
+            min: '最小',
+            max: '最大',
+            minimum: '设置为最小推力',
+            maximum: '设置为最大推力',
+            activeEngines: '活跃引擎',
+            currentThrust: '当前推力',
+            engineThrottle: '引擎节流阀',
+            keyboardHint: 'Shift/Ctrl: ±1% z/x 100%/0%'
+        },
+        steering: {
+            title: '转向控制',
+            angle: '转向角度',
+            keyboardHint: 'A/D: 左/右转向'
+        },
+        touchControls: {
+            title: '触屏控制',
+            steeringPad: '转向控制盘',
+            throttleSlider: '推力滑块',
+            mainControls: '主控制',
+            launch: '发射',
+            stage: '分离',
+            abort: '中止',
+            angle: '角度',
+            throttle: '推力'
+        },
         status: {
             ready: '准备就绪',
             launching: '发射中',
             flying: '飞行中',
             landed: '已着陆',
             crashed: '坠毁',
-            orbit: '轨道中'
+            orbit: '轨道中',
+            takeoff: '重新起飞'
         },
         units: {
             meters: 'm',
@@ -220,7 +258,26 @@ export default {
             launchSuccess: '发射成功！',
             stageEmpty: '当前级燃料耗尽',
             missionComplete: '任务完成',
-            vehicleLost: '载具失联'
+            vehicleLost: '载具失联',
+            takeoff: {
+                title: '重新起飞',
+                message: '火箭离开地面！'
+            },
+            landing: {
+                title: '任务成功',
+                message: '火箭成功着陆！'
+            },
+            crash: {
+                title: '任务失败',
+                message: '火箭撞毁了！'
+            },
+            staging: {
+                title: '分级',
+                message: '第 {stage} 级已分离，激活第 {next} 级',
+                failed: '分级失败',
+                noMoreStages: '没有更多级可分离',
+                notLaunched: '火箭尚未发射'
+            }
         },
         
         // 分级和火箭详情

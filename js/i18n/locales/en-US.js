@@ -186,13 +186,22 @@ export default {
         flightData: {
             title: 'Flight Data',
             altitude: 'Altitude',
-            velocity: 'Velocity',
+            velocity: 'Vertical Velocity',
+            horizontalVelocity: 'Horizontal Velocity',
+            horizontalPosition: 'Horizontal Position',
             acceleration: 'Acceleration',
             mass: 'Mass',
             fuel: 'Liquid Fuel',
             oxidizer: 'Oxidizer',
             throttle: 'Throttle',
             deltaV: 'Remaining Delta-V',
+            stage: 'Stage'
+        },
+        controlsHint: {
+            title: 'Controls',
+            steering: 'Left/Right Turn',
+            throttleAdjust: '±1% Throttle',
+            throttleMinMax: '100%/0% Throttle',
             stage: 'Stage'
         },
         controls: {
@@ -206,13 +215,42 @@ export default {
             sas: 'SAS',
             rcs: 'RCS'
         },
+        throttle: {
+            title: 'Throttle Control',
+            current: 'Current Throttle',
+            min: 'Min',
+            max: 'Max',
+            minimum: 'Set to minimum throttle',
+            maximum: 'Set to maximum throttle',
+            activeEngines: 'Active Engines',
+            currentThrust: 'Current Thrust',
+            engineThrottle: 'Engine Throttle',
+            keyboardHint: 'Shift/Ctrl: ±1% z/x 100%/0%'
+        },
+        steering: {
+            title: 'Steering Control',
+            angle: 'Steering Angle',
+            keyboardHint: 'A/D: Left/Right Turn'
+        },
+        touchControls: {
+            title: 'Touch Controls',
+            steeringPad: 'Steering Pad',
+            throttleSlider: 'Throttle Slider',
+            mainControls: 'Main Controls',
+            launch: 'Launch',
+            stage: 'Stage',
+            abort: 'Abort',
+            angle: 'Angle',
+            throttle: 'Throttle'
+        },
         status: {
             ready: 'Ready',
             launching: 'Launching',
             flying: 'Flying',
             landed: 'Landed',
             crashed: 'Crashed',
-            orbit: 'In Orbit'
+            orbit: 'In Orbit',
+            takeoff: 'Taking Off'
         },
         units: {
             meters: 'm',
@@ -224,7 +262,26 @@ export default {
             launchSuccess: 'Launch successful!',
             stageEmpty: 'Current stage fuel depleted',
             missionComplete: 'Mission complete',
-            vehicleLost: 'Vehicle lost'
+            vehicleLost: 'Vehicle lost',
+            takeoff: {
+                title: 'Taking Off',
+                message: 'Rocket lifting off!'
+            },
+            landing: {
+                title: 'Mission Success',
+                message: 'Rocket landed safely!'
+            },
+            crash: {
+                title: 'Mission Failed',
+                message: 'Rocket crashed!'
+            },
+            staging: {
+                title: 'Staging',
+                message: 'Stage {stage} separated, activating stage {next}',
+                failed: 'Staging Failed',
+                noMoreStages: 'No more stages to separate',
+                notLaunched: 'Rocket has not launched yet'
+            }
         },
         
         // Staging and rocket details

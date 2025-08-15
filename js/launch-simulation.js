@@ -4,11 +4,17 @@ class LaunchSimulation {
         this.assembly = assembly;
         this.isRunning = false;
         this.isPaused = false;
+        this.crashed = false;       // 坠毁状态
+        this.landed = false;        // 着陆状态
+        this.landingNotificationShown = false; // 着陆通知是否已显示
         
         // 物理状态
-        this.altitude = 0;          // 高度 (米)
+        this.altitude = 0;          // 垂直高度 (米)
+        this.horizontalPosition = 0; // 水平位置 (米, 0为发射台位置)
         this.velocity = 0;          // 垂直速度 (米/秒)
-        this.acceleration = 0;      // 加速度 (米/秒²)
+        this.horizontalVelocity = 0; // 水平速度 (米/秒)
+        this.acceleration = 0;      // 垂直加速度 (米/秒²)
+        this.horizontalAcceleration = 0; // 水平加速度 (米/秒²)
         this.mass = 0;              // 当前质量 (吨)
         
         // 环境参数
@@ -22,6 +28,14 @@ class LaunchSimulation {
         this.simulationTimer = null;
         this.lastDebugTime = 0;     // 调试输出时间控制
         this.lastFuelDebugTime = 0; // 燃料调试输出时间控制
+        
+        // 节流阀控制
+        this.throttle = 1.0;        // 节流阀设置 (0.0-1.0)
+        
+        // 转向控制
+        this.steeringAngle = 0;     // 转向角度 (-90° 到 +90°, 0°为垂直向上)
+        this.maxSteeringAngle = 45; // 最大转向角度
+        this.steeringStep = 1;      // 每次调整的转向步长（更小的步长实现平滑控制）
         
         // 当前激活的级
         this.currentStage = 0;
@@ -120,8 +134,15 @@ class LaunchSimulation {
         
         // 重置状态
         this.altitude = 0;
+        this.horizontalPosition = 0;
         this.velocity = 0;
+        this.horizontalVelocity = 0;
         this.acceleration = 0;
+        this.horizontalAcceleration = 0;
+        this.steeringAngle = 0;
+        this.crashed = false;
+        this.landed = false;
+        this.landingNotificationShown = false; // 重置着陆通知标志
         
         // 启动模拟循环
         this.simulationTimer = setInterval(() => {
@@ -156,49 +177,78 @@ class LaunchSimulation {
 
     // 更新物理状态
     updatePhysics() {
-        // 计算当前推力（向上为正）
-        const thrust = this.calculateThrust();
+        // 计算当前推力（总推力）
+        const totalThrust = this.calculateThrust();
         
-        // 计算空气阻力（方向性已在calculateDrag中处理）
-        const drag = this.calculateDrag();
+        // 将推力分解为水平和垂直分量
+        // 转向角度：0°为垂直向上，正角度向右，负角度向左
+        const steeringRadians = this.steeringAngle * Math.PI / 180;
+        const verticalThrust = totalThrust * Math.cos(steeringRadians);   // 垂直分量
+        const horizontalThrust = totalThrust * Math.sin(steeringRadians); // 水平分量
         
-        // 计算重力（向下为负）
-        const gravityForce = -(this.mass * 1000 * this.gravity); // 转换为牛顿，向下
+        // 计算空气阻力（垂直和水平分别计算）
+        const verticalDrag = this.calculateDrag(this.velocity);
+        const horizontalDrag = this.calculateDrag(this.horizontalVelocity);
+        
+        // 计算重力（只有垂直分量，向下为负）
+        const gravityForce = -(this.mass * 1000 * this.gravity);
         
         // 计算净力
-        // 推力向上(+), 重力向下(-), 阻力方向已经在calculateDrag中确定
-        const netForce = thrust + gravityForce + drag;
+        const netVerticalForce = verticalThrust + gravityForce + verticalDrag;
+        const netHorizontalForce = horizontalThrust + horizontalDrag;
         
         // 计算加速度 (m/s²)
-        this.acceleration = netForce / (this.mass * 1000); // 质量转换为kg
+        this.acceleration = netVerticalForce / (this.mass * 1000);
+        this.horizontalAcceleration = netHorizontalForce / (this.mass * 1000);
         
         // 调试输出（每秒输出一次）
         if (Math.floor(Date.now() / 1000) !== this.lastDebugTime) {
             this.lastDebugTime = Math.floor(Date.now() / 1000);
-            const dragMagnitude = Math.abs(drag);
-            const dragDirection = this.velocity >= 0 ? '向下' : '向上';
             console.log(`物理状态:`);
-            console.log(`  推力: ${(thrust/1000).toFixed(1)}kN (向上)`);
+            console.log(`  转向角度: ${this.steeringAngle.toFixed(1)}°`);
+            console.log(`  总推力: ${(totalThrust/1000).toFixed(1)}kN`);
+            console.log(`  垂直推力: ${(verticalThrust/1000).toFixed(1)}kN`);
+            console.log(`  水平推力: ${(horizontalThrust/1000).toFixed(1)}kN`);
             console.log(`  重力: ${(Math.abs(gravityForce)/1000).toFixed(1)}kN (向下)`);
-            console.log(`  阻力: ${(dragMagnitude/1000).toFixed(3)}kN (${dragDirection})`);
-            console.log(`  净力: ${(netForce/1000).toFixed(1)}kN, 加速度: ${this.acceleration.toFixed(2)}m/s²`);
-            console.log(`  速度: ${this.velocity.toFixed(1)}m/s, 高度: ${this.altitude.toFixed(1)}m`);
+            console.log(`  垂直净力: ${(netVerticalForce/1000).toFixed(1)}kN, 加速度: ${this.acceleration.toFixed(2)}m/s²`);
+            console.log(`  水平净力: ${(netHorizontalForce/1000).toFixed(1)}kN, 加速度: ${this.horizontalAcceleration.toFixed(2)}m/s²`);
+            console.log(`  垂直速度: ${this.velocity.toFixed(1)}m/s, 高度: ${this.altitude.toFixed(1)}m`);
+            console.log(`  水平速度: ${this.horizontalVelocity.toFixed(1)}m/s, 水平位置: ${this.horizontalPosition.toFixed(1)}m`);
         }
         
         // 更新速度和位置
         this.velocity += this.acceleration * this.deltaTime;
+        this.horizontalVelocity += this.horizontalAcceleration * this.deltaTime;
         this.altitude += this.velocity * this.deltaTime;
-        
-        // 物理常识检查：下降时加速度不应超过重力加速度太多（除非有异常情况）
-        if (this.velocity < 0 && Math.abs(this.acceleration) > this.gravity * 1.5) {
-            console.warn(`警告：下降加速度异常大 ${Math.abs(this.acceleration).toFixed(2)}m/s² > 1.5g`);
-        }
+        this.horizontalPosition += this.horizontalVelocity * this.deltaTime;
         
         // 地面检查
         if (this.altitude < 0) {
             this.altitude = 0;
-            this.velocity = 0;
-            this.handleCrash();
+            this.handleLanding();
+        }
+        
+        // 重新起飞检查：如果火箭已着陆但有向上的推力，可以重新起飞
+        if (this.landed && this.altitude === 0 && verticalThrust > 0) {
+            // 计算推重比，如果推力足够大，可以重新起飞
+            const weight = this.mass * 1000 * this.gravity; // 重量（牛顿）
+            const thrustToWeightRatio = verticalThrust / weight; // 使用垂直推力计算推重比
+            
+            if (thrustToWeightRatio > 1.0) { // 推重比大于1才能起飞
+                this.landed = false; // 取消着陆状态
+                this.landingNotificationShown = false; // 重置着陆通知标志，下次着陆时可以再次显示
+                console.log(`火箭重新起飞！推重比: ${thrustToWeightRatio.toFixed(2)}, landed状态: ${this.landed}`);
+                
+                // 显示重新起飞通知
+                if (typeof showNotification === 'function') {
+                    const title = window.i18n ? window.i18n.t('launchPad.notifications.takeoff.title') : '重新起飞';
+                    const message = window.i18n ? window.i18n.t('launchPad.notifications.takeoff.message') : '火箭离开地面！';
+                    showNotification(title, message, 'info');
+                }
+                
+                // 更新状态显示
+                this.updateTakeoffStatus();
+            }
         }
         
         // 更新质量（燃料消耗）
@@ -236,8 +286,10 @@ class LaunchSimulation {
                 const thrustVac = engine.data.thrust || thrustAtm;
                 
                 const currentThrust = thrustAtm + (thrustVac - thrustAtm) * (1 - atmosphericPressure);
-                totalThrust += currentThrust;
-                console.log(`引擎 ${engine.data.name} 推力: ${currentThrust.toFixed(1)} kN`);
+                // 应用节流阀设置
+                const throttledThrust = currentThrust * this.throttle;
+                totalThrust += throttledThrust;
+                console.log(`引擎 ${engine.data.name} 推力: ${throttledThrust.toFixed(1)} kN (${Math.round(this.throttle * 100)}%)`);
             }
         });
         
@@ -246,22 +298,22 @@ class LaunchSimulation {
     }
 
     // 计算空气阻力
-    calculateDrag() {
+    calculateDrag(velocity = this.velocity) {
         // 如果速度为0，没有空气阻力
-        if (this.velocity === 0) return 0;
+        if (velocity === 0) return 0;
         
         // 简化的阻力模型
         const atmosphericDensity = this.airDensity * Math.exp(-this.altitude / 8000);
         
         // F_drag = 0.5 * ρ * v² * Cd * A
         // 阻力大小总是正值
-        const dragMagnitude = 0.5 * atmosphericDensity * (this.velocity * this.velocity) * 
+        const dragMagnitude = 0.5 * atmosphericDensity * (velocity * velocity) * 
                              this.dragCoefficient * this.crossSectionArea;
         
         // 阻力方向与速度方向相反
-        // 如果速度向上(+)，阻力向下(-)
-        // 如果速度向下(-)，阻力向上(+)
-        const dragForce = -Math.sign(this.velocity) * dragMagnitude;
+        // 如果速度向上/向右(+)，阻力向下/向左(-)
+        // 如果速度向下/向左(-)，阻力向上/向右(+)
+        const dragForce = -Math.sign(velocity) * dragMagnitude;
         
         return dragForce;
     }
@@ -275,22 +327,24 @@ class LaunchSimulation {
         engines.forEach(engine => {
             if (this.hasEnoughFuel(engine) && engine.data.fuel_consumption) {
                 const consumption = engine.data.fuel_consumption;
+                // 根据节流阀调整燃料消耗
+                const throttleMultiplier = this.throttle;
                 
                 // 优先从引擎自身消耗燃料
                 if (engine.fuelStatus) {
                     if (consumption.liquid_fuel) {
                         engine.fuelStatus.liquid_fuel = Math.max(0, 
-                            engine.fuelStatus.liquid_fuel - consumption.liquid_fuel * this.deltaTime
+                            engine.fuelStatus.liquid_fuel - consumption.liquid_fuel * this.deltaTime * throttleMultiplier
                         );
                     }
                     if (consumption.oxidizer) {
                         engine.fuelStatus.oxidizer = Math.max(0, 
-                            engine.fuelStatus.oxidizer - consumption.oxidizer * this.deltaTime
+                            engine.fuelStatus.oxidizer - consumption.oxidizer * this.deltaTime * throttleMultiplier
                         );
                     }
                 } else {
                     // 只从当前级的燃料罐中消耗燃料
-                    this.consumeFuelFromCurrentStageTanks(consumption);
+                    this.consumeFuelFromCurrentStageTanks(consumption, throttleMultiplier);
                 }
             }
         });
@@ -300,7 +354,7 @@ class LaunchSimulation {
     }
 
     // 从当前级的燃料罐中消耗燃料的辅助方法
-    consumeFuelFromCurrentStageTanks(consumption) {
+    consumeFuelFromCurrentStageTanks(consumption, throttleMultiplier = 1) {
         // 只获取当前级的燃料罐
         const currentStageFuelTanks = this.assembly.parts.filter(p => 
             p.data.fuel_capacity && p.fuelStatus && this.isPartInCurrentStage(p)
@@ -318,7 +372,7 @@ class LaunchSimulation {
 
         // 按比例从当前级的燃料罐消耗燃料
         if (consumption.liquid_fuel && totalLiquidFuel > 0) {
-            const liquidFuelToConsume = consumption.liquid_fuel * this.deltaTime;
+            const liquidFuelToConsume = consumption.liquid_fuel * this.deltaTime * throttleMultiplier;
             currentStageFuelTanks.forEach(tank => {
                 if (tank.fuelStatus.liquid_fuel > 0) {
                     const proportion = tank.fuelStatus.liquid_fuel / totalLiquidFuel;
@@ -331,7 +385,7 @@ class LaunchSimulation {
         }
 
         if (consumption.oxidizer && totalOxidizer > 0) {
-            const oxidizerToConsume = consumption.oxidizer * this.deltaTime;
+            const oxidizerToConsume = consumption.oxidizer * this.deltaTime * throttleMultiplier;
             currentStageFuelTanks.forEach(tank => {
                 if (tank.fuelStatus.oxidizer > 0) {
                     const proportion = tank.fuelStatus.oxidizer / totalOxidizer;
@@ -343,7 +397,7 @@ class LaunchSimulation {
             });
         }
         
-        console.log(`当前级燃料消耗: 液体燃料-${(consumption.liquid_fuel * this.deltaTime).toFixed(2)}, 氧化剂-${(consumption.oxidizer * this.deltaTime).toFixed(2)}`);
+        console.log(`当前级燃料消耗 (${Math.round(throttleMultiplier * 100)}% 节流阀): 液体燃料-${(consumption.liquid_fuel * this.deltaTime * throttleMultiplier).toFixed(2)}, 氧化剂-${(consumption.oxidizer * this.deltaTime * throttleMultiplier).toFixed(2)}`);
     }
 
     // 检查分级条件
@@ -431,7 +485,11 @@ class LaunchSimulation {
         
         // 显示通知
         if (typeof showNotification === 'function') {
-            showNotification('分级', `第 ${this.currentStage} 级已分离，激活第 ${this.currentStage + 1} 级`, 'info');
+            const title = window.i18n ? window.i18n.t('launchPad.notifications.staging.title') : '分级';
+            const message = window.i18n ? 
+                window.i18n.t('launchPad.notifications.staging.message', { stage: this.currentStage, next: this.currentStage + 1 }) : 
+                `第 ${this.currentStage} 级已分离，激活第 ${this.currentStage + 1} 级`;
+            showNotification(title, message, 'info');
         }
         
         return true;
@@ -456,8 +514,20 @@ class LaunchSimulation {
         // 更新飞行数据
         document.getElementById('altitude').textContent = `${Math.round(this.altitude)} m`;
         document.getElementById('velocity').textContent = `${Math.round(this.velocity)} m/s`;
+        document.getElementById('horizontalVelocity').textContent = `${Math.round(this.horizontalVelocity)} m/s`;
+        document.getElementById('horizontalPosition').textContent = `${Math.round(this.horizontalPosition)} m`;
         document.getElementById('acceleration').textContent = `${this.acceleration.toFixed(1)} m/s²`;
         document.getElementById('mass').textContent = `${this.mass.toFixed(2)} t`;
+        
+        // 更新水平数据
+        const horizontalVelocityElement = document.getElementById('horizontalVelocity');
+        const horizontalPositionElement = document.getElementById('horizontalPosition');
+        if (horizontalVelocityElement) {
+            horizontalVelocityElement.textContent = `${Math.round(this.horizontalVelocity)} m/s`;
+        }
+        if (horizontalPositionElement) {
+            horizontalPositionElement.textContent = `${Math.round(this.horizontalPosition)} m`;
+        }
         
         // 计算当前推重比
         const thrust = this.calculateThrust() / 1000; // 转换为kN
@@ -470,6 +540,9 @@ class LaunchSimulation {
         
         // 更新燃料显示
         this.updateFuelDisplay();
+        
+        // 更新转向显示
+        this.updateSteeringDisplay();
         
         // 更新火箭位置
         this.updateRocketPosition();
@@ -532,15 +605,25 @@ class LaunchSimulation {
     updateRocketPosition() {
         const rocketDisplay = document.getElementById('rocketDisplay');
         if (rocketDisplay) {
-            // 根据高度调整火箭位置（视觉效果）
+            // 根据高度调整火箭垂直位置（视觉效果）
             const maxVisualHeight = 300; // 最大视觉移动距离
             const visualHeight = Math.min(this.altitude / 1000 * 50, maxVisualHeight);
+            
+            // 根据水平位置调整火箭水平位置
+            const maxVisualHorizontal = 200; // 最大水平移动距离
+            const visualHorizontalOffset = Math.max(-maxVisualHorizontal, 
+                Math.min(maxVisualHorizontal, this.horizontalPosition / 500 * 50));
             
             const baseBottom = 200; // 基础底部位置
             const newBottom = baseBottom + visualHeight;
             
+            // 基础水平位置是50%（屏幕中心）
+            const baseLeft = 50; // 50% from left
+            const newLeft = baseLeft + (visualHorizontalOffset / window.innerWidth * 100); // 转换为百分比
+            
             rocketDisplay.style.bottom = `${newBottom}px`;
-            rocketDisplay.style.transform = `translateX(-50%) scale(${Math.max(0.3, 1 - visualHeight / 1000)})`;
+            rocketDisplay.style.left = `${newLeft}%`;
+            rocketDisplay.style.transform = `translateX(-50%) scale(${Math.max(0.3, 1 - visualHeight / 1000)}) rotate(${this.steeringAngle}deg)`;
         }
     }
 
@@ -672,14 +755,239 @@ class LaunchSimulation {
         return totalDeltaV;
     }
 
+    // 处理着陆
+    handleLanding() {
+        const landingSpeed = Math.abs(this.velocity); // 着陆速度（取绝对值）
+        const safeSpeed = 10.0; // 安全着陆速度阈值 (m/s)
+        
+        console.log(`着陆速度: ${landingSpeed.toFixed(2)} m/s`);
+        
+        if (landingSpeed <= safeSpeed) {
+            // 安全着陆
+            this.handleSafeLanding();
+        } else {
+            // 高速撞击，坠毁
+            this.handleCrash();
+        }
+    }
+    
+    // 处理安全着陆
+    handleSafeLanding() {
+        // 不停止模拟，允许重新起飞
+        this.velocity = 0;
+        
+        // 如果之前没有着陆过，才显示通知和更新状态
+        if (!this.landed) {
+            this.landed = true; // 标记火箭已着陆
+            console.log('火箭成功着陆！');
+            
+            // 显示成功着陆通知（只在第一次着陆时显示）
+            if (typeof showNotification === 'function' && !this.landingNotificationShown) {
+                const title = window.i18n ? window.i18n.t('launchPad.notifications.landing.title') : '任务成功';
+                const message = window.i18n ? window.i18n.t('launchPad.notifications.landing.message') : '火箭成功着陆！';
+                showNotification(title, message, 'success');
+                this.landingNotificationShown = true; // 标记通知已显示
+            }
+            
+            // 更新状态显示
+            this.updateLandingStatus();
+        }
+    }
+    
+    // 更新着陆状态显示
+    updateLandingStatus() {
+        const countdownText = document.getElementById('countdownText');
+        const countdownNumber = document.getElementById('countdownNumber');
+        
+        if (countdownText) {
+            countdownText.textContent = window.i18n ? window.i18n.t('launchPad.status.landed') : '已着陆';
+        }
+        if (countdownNumber) {
+            countdownNumber.textContent = '✅';
+        }
+    }
+    
+    // 更新重新起飞状态显示
+    updateTakeoffStatus() {
+        const countdownText = document.getElementById('countdownText');
+        const countdownNumber = document.getElementById('countdownNumber');
+        
+        if (countdownText) {
+            countdownText.textContent = window.i18n ? window.i18n.t('launchPad.status.flying') : '飞行中';
+        }
+        if (countdownNumber) {
+            countdownNumber.textContent = '🚀';
+        }
+    }
+
     // 处理撞毁
     handleCrash() {
         this.stop();
+        this.crashed = true; // 标记火箭已坠毁
         console.log('火箭撞毁！');
         
-        // 显示撞毁效果
+        // 隐藏火箭
+        this.hideRocket();
+        
+        // 显示爆炸效果
+        this.showExplosion();
+        
+        // 显示撞毁通知
         if (typeof showNotification === 'function') {
-            showNotification('任务失败', '火箭撞毁了！', 'error');
+            const title = window.i18n ? window.i18n.t('launchPad.notifications.crash.title') : '任务失败';
+            const message = window.i18n ? window.i18n.t('launchPad.notifications.crash.message') : '火箭撞毁了！';
+            showNotification(title, message, 'error');
+        }
+    }
+    
+    // 隐藏火箭
+    hideRocket() {
+        const rocketContainer = document.querySelector('.rocket-container');
+        if (rocketContainer) {
+            rocketContainer.classList.add('rocket-crashed');
+        }
+        
+        // 也隐藏发射台上的火箭显示
+        const rocketDisplay = document.getElementById('rocketDisplay');
+        if (rocketDisplay) {
+            const container = rocketDisplay.querySelector('.rocket-container');
+            if (container) {
+                container.classList.add('rocket-crashed');
+            }
+        }
+    }
+    
+    // 显示爆炸效果
+    showExplosion() {
+        // 在火箭显示区域创建爆炸效果
+        const rocketDisplay = document.getElementById('rocketDisplay');
+        if (!rocketDisplay) return;
+        
+        // 创建爆炸容器
+        const explosionContainer = document.createElement('div');
+        explosionContainer.className = 'explosion-container';
+        
+        // 创建爆炸效果
+        const explosion = document.createElement('div');
+        explosion.className = 'explosion-effect';
+        
+        // 创建粒子效果
+        const particlesContainer = document.createElement('div');
+        particlesContainer.className = 'explosion-particles';
+        
+        // 生成粒子
+        for (let i = 0; i < 12; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'explosion-particle';
+            particle.style.animationDelay = `${Math.random() * 0.2}s`;
+            particlesContainer.appendChild(particle);
+        }
+        
+        explosionContainer.appendChild(explosion);
+        explosionContainer.appendChild(particlesContainer);
+        rocketDisplay.appendChild(explosionContainer);
+        
+        // 播放爆炸音效（如果有的话）
+        this.playExplosionSound();
+        
+        // 2秒后移除爆炸效果
+        setTimeout(() => {
+            if (explosionContainer.parentNode) {
+                explosionContainer.parentNode.removeChild(explosionContainer);
+            }
+        }, 2000);
+    }
+    
+    // 播放爆炸音效
+    playExplosionSound() {
+        // 可以在这里添加音效播放逻辑
+        try {
+            // 创建一个简单的音效（使用 Web Audio API）
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // 爆炸音效：低频噪音
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(60, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(20, audioContext.currentTime + 0.5);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (e) {
+            // 如果音频API不可用，静默忽略
+            console.log('音频播放不可用');
+        }
+    }
+    
+    // 设置节流阀
+    setThrottle(throttleValue) {
+        this.throttle = Math.max(0, Math.min(1, throttleValue));
+        console.log(`节流阀设置为: ${Math.round(this.throttle * 100)}%`);
+    }
+    
+    // 获取当前节流阀设置
+    getThrottle() {
+        return this.throttle;
+    }
+    
+    // 设置转向角度
+    setSteering(angle) {
+        this.steeringAngle = Math.max(-this.maxSteeringAngle, 
+                                     Math.min(this.maxSteeringAngle, angle));
+        console.log(`转向角度设置为: ${this.steeringAngle.toFixed(1)}°`);
+        
+        // 更新导航条显示
+        this.updateSteeringDisplay();
+    }
+    
+    // 向左转向
+    steerLeft() {
+        this.setSteering(this.steeringAngle - this.steeringStep);
+    }
+    
+    // 向右转向
+    steerRight() {
+        this.setSteering(this.steeringAngle + this.steeringStep);
+    }
+    
+    // 重置转向
+    resetSteering() {
+        this.setSteering(0);
+    }
+    
+    // 更新转向显示
+    updateSteeringDisplay() {
+        const steeringAngleElement = document.getElementById('steeringAngle');
+        const navPointer = document.getElementById('navPointer');
+        
+        if (steeringAngleElement) {
+            steeringAngleElement.textContent = `${this.steeringAngle.toFixed(0)}°`;
+        }
+        
+        if (navPointer) {
+            // 计算导航指针位置，140px宽的导航条，最大角度45°
+            const maxOffset = 70; // 导航条半宽
+            const offset = (this.steeringAngle / this.maxSteeringAngle) * maxOffset;
+            navPointer.style.left = `calc(50% + ${offset}px)`;
+            
+            // 根据转向角度改变指针颜色
+            if (Math.abs(this.steeringAngle) > 30) {
+                navPointer.style.background = '#FF6B6B'; // 大角度时显示红色警告
+                navPointer.style.borderColor = '#FF4444';
+            } else if (Math.abs(this.steeringAngle) > 15) {
+                navPointer.style.background = '#FFE66D'; // 中等角度时显示黄色
+                navPointer.style.borderColor = '#FFD700';
+            } else {
+                navPointer.style.background = '#87CEEB'; // 小角度时显示蓝色
+                navPointer.style.borderColor = 'white';
+            }
         }
     }
 }

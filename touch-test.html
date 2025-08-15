@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>触屏控制测试</title>
+    <link rel="stylesheet" href="css/launch-pad.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #1a1a2e;
+            color: white;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #00d4aa;
+            margin-bottom: 30px;
+        }
+        
+        .test-info {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .test-note {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .back-button {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        
+        .back-button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🚀 触屏控制测试页面</h1>
+        
+        <div class="test-info">
+            <h2>触屏控制功能说明</h2>
+            <p>我们为火箭发射模拟器添加了完整的触屏控制支持，让您可以在平板电脑和手机上轻松操控火箭：</p>
+            
+            <ul class="feature-list">
+                <li><strong>🎮 触屏转向控制盘：</strong> 120px 圆形控制盘，支持拖拽操作，实时显示转向角度 (-45° 到 +45°)</li>
+                <li><strong>⬆️ 垂直推力滑块：</strong> 160px 高度的垂直滑块，支持拖拽调节推力 (0-100%)</li>
+                <li><strong>🎯 快捷推力按钮：</strong> 一键设置推力为 0% 或 100%</li>
+                <li><strong>🚀 主控制按钮：</strong> 发射、分离、中止等关键操作按钮</li>
+                <li><strong>📱 响应式设计：</strong> 桌面端自动隐藏，移动端完美显示</li>
+                <li><strong>🍎 Safari 兼容：</strong> 特别优化 iOS Safari 浏览器的触屏体验</li>
+            </ul>
+        </div>
+        
+        <div class="test-note">
+            <h3>📝 测试说明</h3>
+            <p><strong>在移动设备上测试：</strong></p>
+            <ol style="text-align: left;">
+                <li>先在火箭装配大楼创建一个火箭</li>
+                <li>进入发射台页面</li>
+                <li>在触屏设备上，触屏控制面板会自动显示</li>
+                <li>使用转向控制盘进行左右转向</li>
+                <li>使用推力滑块调节引擎推力</li>
+                <li>点击发射、分离、中止按钮进行操作</li>
+            </ol>
+            
+            <p><strong>在桌面上：</strong></p>
+            <p>触屏控制面板默认隐藏，可以使用键盘控制：A/D 转向，Shift/Ctrl 调节推力。</p>
+        </div>
+        
+        <a href="rocket-builder.html" class="back-button">🔧 前往装配大楼</a>
+        <a href="launch-pad.html" class="back-button">🚀 前往发射台</a>
+    </div>
+    
+    <!-- 显示触屏控制面板用于展示 -->
+    <div id="touchControlPanel" class="touch-control-panel active" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+        <div class="touch-steering-section">
+            <div class="touch-steering-pad" id="touchSteeringPad">
+                <div class="touch-steering-indicator" id="touchSteeringIndicator"></div>
+            </div>
+            <div class="touch-steering-info">
+                <span id="touchSteeringAngle">0°</span>
+            </div>
+        </div>
+        
+        <div class="touch-throttle-section">
+            <div class="touch-throttle-container">
+                <div class="touch-throttle-slider" id="touchThrottleSlider">
+                    <div class="touch-throttle-fill" id="touchThrottleFill"></div>
+                    <div class="touch-throttle-handle" id="touchThrottleHandle"></div>
+                </div>
+                <div class="touch-throttle-value" id="touchThrottleValue">0%</div>
+            </div>
+        </div>
+        
+        <div class="touch-main-controls">
+            <button id="touchLaunchBtn" class="touch-main-btn launch-btn">发射</button>
+            <button id="touchStageBtn" class="touch-main-btn stage-btn">分离</button>
+            <button id="touchAbortBtn" class="touch-main-btn abort-btn">中止</button>
+        </div>
+    </div>
+
+    <script>
+        // 简单的演示脚本
+        document.addEventListener('DOMContentLoaded', function() {
+            // 模拟触屏控制交互
+            const steeringPad = document.getElementById('touchSteeringPad');
+            const steeringIndicator = document.getElementById('touchSteeringIndicator');
+            const steeringAngle = document.getElementById('touchSteeringAngle');
+            
+            if (steeringPad && steeringIndicator) {
+                let isDragging = false;
+                
+                const handleStart = (e) => {
+                    isDragging = true;
+                    e.preventDefault();
+                };
+                
+                const handleMove = (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    
+                    const rect = steeringPad.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    
+                    let clientX, clientY;
+                    if (e.touches) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                    } else {
+                        clientX = e.clientX;
+                        clientY = e.clientY;
+                    }
+                    
+                    const deltaX = clientX - centerX;
+                    const deltaY = clientY - centerY;
+                    
+                    const maxRadius = rect.width / 2 - 15;
+                    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    
+                    let finalX = deltaX;
+                    let finalY = deltaY;
+                    
+                    if (distance > maxRadius) {
+                        finalX = (deltaX / distance) * maxRadius;
+                        finalY = (deltaY / distance) * maxRadius;
+                    }
+                    
+                    const angle = Math.max(-45, Math.min(45, (finalX / maxRadius) * 45));
+                    
+                    steeringIndicator.style.transform = `translate(-50%, -50%) translate(${finalX}px, ${finalY}px)`;
+                    steeringAngle.textContent = `${Math.round(angle)}°`;
+                };
+                
+                const handleEnd = (e) => {
+                    isDragging = false;
+                    steeringIndicator.style.transform = 'translate(-50%, -50%)';
+                    steeringAngle.textContent = '0°';
+                };
+                
+                // 触屏事件
+                steeringPad.addEventListener('touchstart', handleStart);
+                steeringPad.addEventListener('touchmove', handleMove);
+                steeringPad.addEventListener('touchend', handleEnd);
+                
+                // 鼠标事件（用于桌面测试）
+                steeringPad.addEventListener('mousedown', handleStart);
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('mouseup', handleEnd);
+            }
+            
+            // 推力滑块演示
+            const throttleSlider = document.getElementById('touchThrottleSlider');
+            const throttleHandle = document.getElementById('touchThrottleHandle');
+            const throttleFill = document.getElementById('touchThrottleFill');
+            const throttleValue = document.getElementById('touchThrottleValue');
+            
+            if (throttleSlider) {
+                let isDragging = false;
+                
+                const updateThrottle = (percentage) => {
+                    throttleHandle.style.bottom = `${percentage}%`;
+                    throttleFill.style.height = `${percentage}%`;
+                    throttleValue.textContent = `${Math.round(percentage)}%`;
+                };
+                
+                const handleStart = (e) => {
+                    isDragging = true;
+                    e.preventDefault();
+                };
+                
+                const handleMove = (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    
+                    const rect = throttleSlider.getBoundingClientRect();
+                    let clientY;
+                    if (e.touches) {
+                        clientY = e.touches[0].clientY;
+                    } else {
+                        clientY = e.clientY;
+                    }
+                    
+                    const y = clientY - rect.top;
+                    const percentage = Math.max(0, Math.min(100, (1 - y / rect.height) * 100));
+                    updateThrottle(percentage);
+                };
+                
+                const handleEnd = () => {
+                    isDragging = false;
+                };
+                
+                throttleSlider.addEventListener('touchstart', handleStart);
+                throttleSlider.addEventListener('touchmove', handleMove);
+                throttleSlider.addEventListener('touchend', handleEnd);
+                
+                throttleSlider.addEventListener('mousedown', handleStart);
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('mouseup', handleEnd);
+            }
+        });
+    </script>
+</body>
+</html>
