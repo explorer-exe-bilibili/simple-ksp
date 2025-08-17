@@ -31,6 +31,11 @@ class LaunchPad {
         this.touchThrottleDragging = false;
         this.touchSteeringActive = false;
         
+        // 火箭显示状态跟踪（避免不必要的重新渲染）
+        this.lastCrashedState = false;
+        this.lastLandedState = false;
+        this.lastStageState = 0;
+        
         this.initializeUI();
         this.loadRocketData();
         
@@ -197,6 +202,9 @@ class LaunchPad {
         rocketContainer.style.position = 'relative';
         rocketContainer.style.transform = `scale(${scale})`;
         
+        // 设置火箭容器的中心位置
+        this.centerRocketView(rocketContainer);
+        
         // 如果火箭已着陆且高度为0，添加着陆样式和标识
         if (this.simulation && this.simulation.landed && this.simulation.altitude <= 0) {
             rocketContainer.classList.add('rocket-landed');
@@ -232,9 +240,17 @@ class LaunchPad {
             connectedPartIds.includes(part.id)
         );
         
-        console.log(`总部件数: ${this.assembly.parts.length}, 连通部件数: ${connectedParts.length}`);
+        // 如果有模拟运行，过滤掉已分离的部件
+        const visibleParts = this.simulation && this.simulation.separatedPartIds ? 
+            connectedParts.filter(part => !this.simulation.separatedPartIds.has(part.id)) :
+            connectedParts;
         
-        connectedParts.forEach(part => {
+        console.log(`总部件数: ${this.assembly.parts.length}, 连通部件数: ${connectedParts.length}, 可见部件数: ${visibleParts.length}`);
+        if (this.simulation && this.simulation.separatedPartIds) {
+            console.log(`已分离部件数: ${this.simulation.separatedPartIds.size}`);
+        }
+        
+        visibleParts.forEach(part => {
             this.renderRocketPart(rocketContainer, part, bounds, scale);
         });
 
@@ -286,8 +302,38 @@ class LaunchPad {
         return Math.min(scaleX, scaleY, 1); // 不超过原始大小
     }
 
+    // 设置火箭为视角中心
+    centerRocketView(rocketContainer) {
+        const displayArea = document.getElementById('rocketDisplay');
+        if (!displayArea) return;
+
+        const displayRect = displayArea.getBoundingClientRect();
+        const centerX = displayRect.width / 2;
+        const centerY = displayRect.height / 2;
+
+        if (!this.simulation) {
+            // 发射前：火箭在屏幕中心偏下位置，模拟在发射台上
+            rocketContainer.style.position = 'absolute';
+            rocketContainer.style.left = `${centerX}px`;
+            rocketContainer.style.top = `${centerY + 100}px`; // 偏下一些，模拟在地面
+            rocketContainer.style.transform = rocketContainer.style.transform + ' translate(-50%, -50%)';
+            
+            console.log('火箭定位：发射台模式');
+            return;
+        }
+
+        // 飞行中的定位在 updateCameraView 中处理
+        console.log('火箭定位：飞行模式 - 由updateCameraView处理');
+    }
+
     // 渲染单个火箭部件
     renderRocketPart(container, part, bounds, scale) {
+        // 检查部件是否已分离，如果已分离则不渲染
+        if (this.simulation && this.simulation.separatedPartIds && this.simulation.separatedPartIds.has(part.id)) {
+            console.log(`跳过渲染已分离部件: ${part.data.name} (ID: ${part.id})`);
+            return;
+        }
+        
         const partElement = document.createElement('div');
         partElement.className = 'rocket-part';
         partElement.id = `launch-part-${part.id}`;
@@ -392,10 +438,166 @@ class LaunchPad {
                 
                 // 更新飞行数据显示
                 this.updateLiveFlightData();
-                // 更新火箭显示（处理坠毁和着陆状态）
-                this.displayRocket();
+                // 更新视角中心（平滑跟随火箭）
+                this.updateCameraView();
+                // 只在状态发生重大变化时更新火箭显示，避免闪烁
+                this.updateRocketDisplayIfNeeded();
             }
         }, 100); // 每100ms更新一次
+    }
+    
+    // 更新相机视角（平滑跟随火箭）
+    updateCameraView() {
+        if (!this.simulation) return;
+        
+        const rocketContainer = document.querySelector('.rocket-container');
+        if (!rocketContainer) return;
+        
+        const displayArea = document.getElementById('rocketDisplay');
+        if (!displayArea) return;
+        
+        const displayRect = displayArea.getBoundingClientRect();
+        const centerX = displayRect.width / 2;
+        const centerY = displayRect.height / 2;
+        
+        // 获取火箭的世界坐标
+        const altitude = this.simulation.altitude;
+        const horizontalPos = this.simulation.horizontalPosition;
+        
+        // 火箭始终保持在屏幕中心
+        rocketContainer.style.position = 'absolute';
+        rocketContainer.style.left = `${centerX}px`;
+        rocketContainer.style.top = `${centerY}px`;
+        
+        // 获取当前缩放比例
+        const currentTransform = rocketContainer.style.transform;
+        const scaleMatch = currentTransform.match(/scale\(([^)]+)\)/);
+        const currentScale = scaleMatch ? scaleMatch[1] : '1';
+        rocketContainer.style.transform = `scale(${currentScale}) translate(-50%, -50%)`;
+        
+        // 更新世界背景位置（相对于火箭移动）
+        this.updateWorldBackground(altitude, horizontalPos);
+        
+        // 调试信息
+        if (Math.floor(Date.now() / 1000) % 5 === 0 && Date.now() % 1000 < 100) {
+            console.log(`世界坐标: 高度=${altitude.toFixed(1)}m, 水平=${horizontalPos.toFixed(1)}m`);
+        }
+    }
+    
+    // 更新世界背景（发射台、地面等相对于火箭移动）
+    updateWorldBackground(altitude, horizontalPos) {
+        const displayArea = document.getElementById('rocketDisplay');
+        if (!displayArea) return;
+        
+        const displayRect = displayArea.getBoundingClientRect();
+        const centerX = displayRect.width / 2;
+        const centerY = displayRect.height / 2;
+        
+        // 计算世界坐标到屏幕坐标的映射
+        // 1米 = 2像素的比例
+        const pixelsPerMeter = 2;
+        
+        // 发射台在世界坐标(0, 0)，现在计算它在屏幕上的位置
+        const launchPadScreenX = centerX - (horizontalPos * pixelsPerMeter);
+        const launchPadScreenY = centerY + (altitude * pixelsPerMeter);
+        
+        // 更新发射台位置
+        this.updateLaunchPad(launchPadScreenX, launchPadScreenY);
+        
+        // 更新地面和背景
+        this.updateGroundAndSky(altitude, horizontalPos, pixelsPerMeter);
+    }
+    
+    // 更新发射台位置
+    updateLaunchPad(screenX, screenY) {
+        // 查找或创建发射台元素
+        let launchPad = document.querySelector('.world-launch-pad');
+        if (!launchPad) {
+            launchPad = document.createElement('div');
+            launchPad.className = 'world-launch-pad';
+            launchPad.innerHTML = `
+                <div class="launch-tower-main"></div>
+                <div class="launch-platform"></div>
+            `;
+            document.getElementById('rocketDisplay').appendChild(launchPad);
+        }
+        
+        // 更新发射台位置
+        launchPad.style.position = 'absolute';
+        launchPad.style.left = `${screenX}px`;
+        launchPad.style.top = `${screenY}px`;
+        launchPad.style.transform = 'translate(-50%, -100%)'; // 以底部中心为锚点
+        launchPad.style.zIndex = '5';
+    }
+    
+    // 更新地面和天空
+    updateGroundAndSky(altitude, horizontalPos, pixelsPerMeter) {
+        const displayArea = document.getElementById('rocketDisplay');
+        const displayRect = displayArea.getBoundingClientRect();
+        const centerX = displayRect.width / 2;
+        const centerY = displayRect.height / 2;
+        
+        // 地面高度在屏幕上的位置
+        const groundScreenY = centerY + (altitude * pixelsPerMeter);
+        
+        // 查找或创建地面元素
+        let ground = document.querySelector('.world-ground');
+        if (!ground) {
+            ground = document.createElement('div');
+            ground.className = 'world-ground';
+            displayArea.appendChild(ground);
+        }
+        
+        // 更新地面位置和大小
+        ground.style.position = 'absolute';
+        ground.style.left = '0';
+        ground.style.top = `${groundScreenY}px`;
+        ground.style.width = '100%';
+        ground.style.height = `${Math.max(displayRect.height - groundScreenY + 100, 100)}px`;
+        ground.style.zIndex = '1';
+        
+        // 查找或创建天空渐变元素
+        let sky = document.querySelector('.world-sky');
+        if (!sky) {
+            sky = document.createElement('div');
+            sky.className = 'world-sky';
+            displayArea.appendChild(sky);
+        }
+        
+        // 根据高度调整天空颜色
+        const skyColor = this.getSkyColorByAltitude(altitude);
+        sky.style.position = 'absolute';
+        sky.style.left = '0';
+        sky.style.top = '0';
+        sky.style.width = '100%';
+        sky.style.height = '100%';
+        sky.style.background = skyColor;
+        sky.style.zIndex = '0';
+    }
+    
+    // 根据高度获取天空颜色
+    getSkyColorByAltitude(altitude) {
+        if (altitude < 1000) {
+            // 低空：蓝天
+            return 'linear-gradient(to bottom, #87CEEB 0%, #87CEEB 60%, #90EE90 100%)';
+        } else if (altitude < 10000) {
+            // 中空：渐变到深蓝
+            const ratio = altitude / 10000;
+            return `linear-gradient(to bottom, 
+                hsl(200, 70%, ${70 - ratio * 30}%) 0%, 
+                hsl(200, 60%, ${60 - ratio * 20}%) 60%, 
+                #87CEEB ${100 - ratio * 40}%)`;
+        } else if (altitude < 50000) {
+            // 高空：深蓝到黑色
+            const ratio = (altitude - 10000) / 40000;
+            return `linear-gradient(to bottom, 
+                hsl(220, 50%, ${40 - ratio * 30}%) 0%, 
+                hsl(220, 40%, ${30 - ratio * 25}%) 50%, 
+                hsl(220, 30%, ${20 - ratio * 15}%) 100%)`;
+        } else {
+            // 太空：黑色星空
+            return 'linear-gradient(to bottom, #000011 0%, #000033 50%, #000011 100%)';
+        }
     }
     
     // 停止飞行数据更新循环
@@ -403,6 +605,32 @@ class LaunchPad {
         if (this.flightDataUpdateTimer) {
             clearInterval(this.flightDataUpdateTimer);
             this.flightDataUpdateTimer = null;
+        }
+    }
+    
+    // 只在需要时更新火箭显示，避免闪烁
+    updateRocketDisplayIfNeeded() {
+        if (!this.simulation) return;
+        
+        // 只在这些情况下才重新渲染火箭显示
+        const shouldUpdate = 
+            this.simulation.crashed !== this.lastCrashedState ||
+            this.simulation.landed !== this.lastLandedState ||
+            this.simulation.currentStage !== this.lastStageState;
+        
+        if (shouldUpdate) {
+            console.log('火箭状态发生变化，更新显示', {
+                crashed: this.simulation.crashed,
+                landed: this.simulation.landed,
+                currentStage: this.simulation.currentStage,
+                separatedParts: this.simulation.separatedPartIds ? this.simulation.separatedPartIds.size : 0
+            });
+            this.displayRocket();
+            
+            // 更新状态记录
+            this.lastCrashedState = this.simulation.crashed;
+            this.lastLandedState = this.simulation.landed;
+            this.lastStageState = this.simulation.currentStage;
         }
     }
     
@@ -609,6 +837,11 @@ class LaunchPad {
         this.simulation = new LaunchSimulation(this.assembly);
         this.simulation.setThrottle(this.throttle / 100); // 设置初始节流阀值
         this.simulation.start();
+
+        // 初始化状态跟踪变量
+        this.lastCrashedState = false;
+        this.lastLandedState = false;
+        this.lastStageState = 0;
 
         // 启动飞行数据更新循环
         this.startFlightDataUpdate();
@@ -998,8 +1231,14 @@ class LaunchPad {
     // 初始化触屏控制
     initializeTouchControls() {
         const touchPanel = document.getElementById('touchControlPanel');
+        const touchControlButtons = document.getElementById('touchControlButtons');
+        
         if (touchPanel) {
             touchPanel.classList.add('active');
+        }
+        
+        if (touchControlButtons) {
+            touchControlButtons.classList.add('active');
         }
         
         // 初始化转向控制
@@ -1010,6 +1249,9 @@ class LaunchPad {
         
         // 初始化主要控制按钮
         this.initializeTouchMainControls();
+        
+        // 初始化右上角按钮组
+        this.initializeTouchTopButtons();
     }
     
     // 初始化触屏转向控制
@@ -1166,6 +1408,57 @@ class LaunchPad {
         if (abortBtn) {
             abortBtn.addEventListener('click', () => {
                 abortLaunch();
+            });
+        }
+    }
+    
+    // 初始化右上角按钮组
+    initializeTouchTopButtons() {
+        const launchBtn = document.getElementById('touchLaunchBtn');
+        const stageBtn = document.getElementById('touchStageBtn');
+        const abortBtn = document.getElementById('touchAbortBtn');
+        
+        // 由于HTML结构改变，这些按钮现在在右上角按钮组中
+        // 事件监听器逻辑保持不变，因为ID相同
+        if (launchBtn) {
+            launchBtn.addEventListener('click', () => {
+                startLaunch();
+            });
+            launchBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                launchBtn.style.transform = 'scale(0.95)';
+            });
+            launchBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                launchBtn.style.transform = 'scale(1)';
+            });
+        }
+        
+        if (stageBtn) {
+            stageBtn.addEventListener('click', () => {
+                activateNextStage();
+            });
+            stageBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                stageBtn.style.transform = 'scale(0.95)';
+            });
+            stageBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                stageBtn.style.transform = 'scale(1)';
+            });
+        }
+        
+        if (abortBtn) {
+            abortBtn.addEventListener('click', () => {
+                abortLaunch();
+            });
+            abortBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                abortBtn.style.transform = 'scale(0.95)';
+            });
+            abortBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                abortBtn.style.transform = 'scale(1)';
             });
         }
     }

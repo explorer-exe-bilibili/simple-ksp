@@ -69,11 +69,57 @@
 /* 火箭显示区域 */
 .rocket-display {
     position: absolute;
-    bottom: 200px; /* 在发射塔上方 */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    overflow: hidden; /* 确保火箭在边界外不显示 */
+    transition: all 0.1s ease;
+}
+
+/* 发射台参考物 */
+.rocket-display::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 10;
-    transition: all 0.3s ease;
+    width: 4px;
+    height: 200px;
+    background: linear-gradient(to bottom, #666 0%, #333 100%);
+    border-radius: 2px 2px 0 0;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    z-index: 5;
+}
+
+/* 高度网格线（可选，帮助用户判断高度） */
+.altitude-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.altitude-grid::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%),
+        repeating-linear-gradient(
+            to bottom,
+            transparent 0px,
+            transparent 98px,
+            rgba(255,255,255,0.05) 98px,
+            rgba(255,255,255,0.05) 100px
+        );
 }
 
 .rocket-part {
@@ -523,18 +569,106 @@
 /* 触屏控制面板 */
 .touch-control-panel {
     position: fixed;
-    bottom: 0;
+    bottom: 120px; /* 避免与底部控制面板重叠 */
     left: 0;
     right: 0;
     height: 200px;
-    background: rgba(0, 0, 0, 0.9);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    border-top: 2px solid rgba(255, 255, 255, 0.1);
+    background: transparent; /* 设置为透明背景 */
+    border-top: none; /* 移除边框 */
     display: none; /* 默认隐藏，通过JavaScript检测触屏设备后显示 */
     z-index: 1000;
     padding: 20px;
     box-sizing: border-box;
+}
+
+/* 右上角控制按钮组 */
+.touch-control-buttons {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001;
+    display: none; /* 默认隐藏 */
+    flex-direction: row;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.touch-control-buttons.active {
+    display: flex;
+}
+
+.touch-control-btn {
+    width: 50px;
+    height: 50px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.touch-control-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.05);
+}
+
+.touch-control-btn:active {
+    transform: scale(0.95);
+}
+
+.touch-control-btn .touch-btn-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+/* 发射按钮特殊样式 */
+.touch-launch-btn {
+    background: linear-gradient(135deg, 
+        rgba(0, 150, 0, 0.8) 0%, 
+        rgba(50, 200, 50, 0.8) 100%) !important;
+}
+
+.touch-launch-btn:hover {
+    background: linear-gradient(135deg, 
+        rgba(50, 200, 50, 0.9) 0%, 
+        rgba(100, 255, 100, 0.9) 100%) !important;
+}
+
+/* 分离按钮特殊样式 */
+.touch-stage-btn {
+    background: linear-gradient(135deg, 
+        rgba(255, 165, 0, 0.8) 0%, 
+        rgba(255, 200, 50, 0.8) 100%) !important;
+}
+
+.touch-stage-btn:hover {
+    background: linear-gradient(135deg, 
+        rgba(255, 200, 50, 0.9) 0%, 
+        rgba(255, 220, 100, 0.9) 100%) !important;
+}
+
+/* 中止按钮特殊样式 */
+.touch-abort-btn {
+    background: linear-gradient(135deg, 
+        rgba(220, 20, 20, 0.8) 0%, 
+        rgba(255, 50, 50, 0.8) 100%) !important;
+}
+
+.touch-abort-btn:hover {
+    background: linear-gradient(135deg, 
+        rgba(255, 50, 50, 0.9) 0%, 
+        rgba(255, 100, 100, 0.9) 100%) !important;
 }
 
 .touch-control-panel.active {
@@ -565,8 +699,8 @@
     position: relative;
     width: 120px;
     height: 120px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(135, 206, 235, 0.5);
+    background: transparent; /* 设置为透明背景 */
+    border: 2px solid rgba(135, 206, 235, 0.3); /* 降低边框透明度 */
     border-radius: 50%;
     margin: 10px 0;
     touch-action: none;
@@ -579,10 +713,12 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 4px;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.6);
+    width: 6px;
+    height: 6px;
+    background: rgba(135, 206, 235, 0.8); /* 使用蓝色调，提高可见度 */
+    border: 1px solid rgba(255, 255, 255, 0.8);
     border-radius: 50%;
+    box-shadow: 0 0 4px rgba(135, 206, 235, 0.5);
 }
 
 .touch-steering-indicator {
@@ -590,13 +726,20 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 24px;
-    height: 24px;
-    background: #87CEEB;
-    border: 3px solid white;
+    width: 20px;
+    height: 20px;
+    background: rgba(255, 107, 53, 0.9); /* 更鲜明的橙色 */
+    border: 2px solid rgba(255, 255, 255, 0.9);
     border-radius: 50%;
     transition: all 0.1s ease;
-    box-shadow: 0 0 10px rgba(135, 206, 235, 0.5);
+    box-shadow: 0 2px 6px rgba(255, 107, 53, 0.4);
+    cursor: grab;
+}
+
+.touch-steering-indicator:active {
+    cursor: grabbing;
+    transform: translate(-50%, -50%) scale(1.1);
+    box-shadow: 0 3px 8px rgba(255, 107, 53, 0.6);
 }
 
 .touch-angle-display {
@@ -730,6 +873,364 @@
 @media (min-width: 1024px) and (hover: hover) {
     .touch-control-panel {
         display: none !important;
+    }
+}
+
+/* 移动端响应式设计 */
+@media (max-width: 768px) {
+    /* 右上角控制按钮组移动端调整 */
+    .touch-control-buttons {
+        top: 15px;
+        right: 15px;
+        gap: 10px;
+    }
+    
+    .touch-control-btn {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .touch-control-btn .touch-btn-icon {
+        font-size: 20px;
+    }
+    
+    /* 顶部控制栏移动端优化 */
+    .launch-header {
+        height: 50px;
+        padding: 0 15px;
+        font-size: 0.9em;
+    }
+    
+    .launch-title {
+        font-size: 1.1em;
+    }
+    
+    .back-button {
+        padding: 6px 10px;
+        font-size: 0.8em;
+    }
+    
+    .back-button svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    /* 调整面板top值以适应较小的header */
+    .flight-data-panel,
+    .staging-panel {
+        top: 60px;
+    }
+    
+    /* 触屏控制面板优化 */
+    .touch-control-panel {
+        bottom: 105px; /* 避免与底部控制面板重叠 */
+        right: 10px;
+        padding: 8px;
+    }
+    
+    .touch-steering-pad {
+        width: 80px;
+        height: 80px;
+        border: 2px solid rgba(135, 206, 235, 0.2); /* 移动端进一步降低透明度 */
+    }
+    
+    .touch-throttle-slider {
+        width: 30px;
+        height: 100px;
+    }
+    
+    .touch-main-btn {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .touch-btn-icon {
+        font-size: 1.2em;
+    }
+    
+    .touch-btn-text {
+        font-size: 0.7em;
+    }
+    
+    /* 飞行数据面板 - 移动端调整 */
+    .flight-data-panel {
+        width: calc(50% - 25px);
+        max-width: 180px;
+        font-size: 0.85em;
+    }
+    
+    .flight-data-panel .panel-header h3 {
+        font-size: 1em;
+        margin-bottom: 10px;
+    }
+    
+    .flight-data-panel .data-item {
+        margin-bottom: 6px;
+    }
+    
+    .flight-data-panel .data-label {
+        font-size: 0.75em;
+    }
+    
+    .flight-data-panel .data-value {
+        font-size: 0.8em;
+    }
+    
+    /* 操作说明区域缩小 */
+    .controls-hint {
+        margin-top: 8px;
+    }
+    
+    .hint-title {
+        font-size: 0.8em;
+        margin-bottom: 6px;
+    }
+    
+    .hint-item {
+        padding: 2px 0;
+        font-size: 0.65em;
+    }
+    
+    .hint-keys {
+        padding: 1px 4px;
+        font-size: 0.6em;
+        min-width: 35px;
+    }
+    
+    /* 分级面板 - 移动端调整 */
+    .staging-panel {
+        width: calc(50% - 25px);
+        max-width: 180px;
+        font-size: 0.85em;
+        max-height: calc(100vh - 300px);
+        overflow-y: auto;
+    }
+    
+    .staging-panel .panel-header h3 {
+        font-size: 1em;
+        margin-bottom: 10px;
+    }
+    
+    .stage-item {
+        padding: 8px;
+        margin-bottom: 6px;
+    }
+    
+    .stage-header {
+        font-size: 0.85em;
+    }
+    
+    .stage-info {
+        font-size: 0.75em;
+    }
+    
+    .stage-engines {
+        font-size: 0.65em;
+    }
+    
+    /* 底部控制面板 - 移动端调整 */
+    .launch-control-panel {
+        height: 100px;
+        padding: 15px 20px;
+    }
+    
+    .control-buttons-new {
+        gap: 15px;
+    }
+    
+    /* 控制导航条缩小 */
+    .control-navigation .nav-bar {
+        width: 60px;
+    }
+    
+    .control-navigation .nav-labels {
+        width: 60px;
+        font-size: 0.7em;
+    }
+    
+    /* 节流阀控制缩小 */
+    .control-throttle .throttle-slider-horizontal {
+        width: 80px;
+    }
+    
+    /* 控制按钮缩小 */
+    .control-btn {
+        padding: 8px 12px;
+        font-size: 0.85em;
+    }
+    
+    .control-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    /* 倒计时显示调整 */
+    .countdown-display {
+        font-size: 0.9em;
+    }
+}
+
+/* 超小屏幕（手机竖屏） */
+@media (max-width: 480px) {
+    /* 右上角控制按钮组进一步调整 */
+    .touch-control-buttons {
+        top: 10px;
+        right: 10px;
+        gap: 8px;
+    }
+    
+    .touch-control-btn {
+        width: 42px;
+        height: 42px;
+    }
+    
+    .touch-control-btn .touch-btn-icon {
+        font-size: 18px;
+    }
+    
+    /* 顶部控制栏进一步优化 */
+    .launch-header {
+        height: 45px;
+        padding: 0 10px;
+        font-size: 0.85em;
+    }
+    
+    .launch-title {
+        font-size: 1em;
+    }
+    
+    .back-button {
+        padding: 5px 8px;
+        font-size: 0.75em;
+    }
+    
+    .rocket-name {
+        font-size: 0.8em;
+    }
+    
+    /* 进一步调整面板位置 */
+    .flight-data-panel {
+        top: 55px;
+    }
+    
+    .staging-panel {
+        top: 55px;
+    }
+    
+    /* 触屏控制面板进一步优化 */
+    .touch-control-panel {
+        bottom: 95px; /* 适应更小的底部控制面板 */
+        right: 5px;
+        padding: 6px;
+        gap: 8px;
+    }
+    
+    .touch-steering-pad {
+        width: 70px;
+        height: 70px;
+        border: 1px solid rgba(135, 206, 235, 0.15); /* 超小屏幕更加透明 */
+    }
+    
+    .touch-throttle-slider {
+        width: 25px;
+        height: 80px;
+    }
+    
+    .touch-main-btn {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .touch-btn-icon {
+        font-size: 1em;
+        margin-bottom: 2px;
+    }
+    
+    .touch-btn-text {
+        font-size: 0.65em;
+    }
+    
+    /* 进一步缩小飞行数据面板 */
+    .flight-data-panel {
+        width: calc(100% - 40px);
+        left: 20px;
+        right: 20px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    /* 隐藏分级面板或移到底部 */
+    .staging-panel {
+        display: none;
+    }
+    
+    /* 或者将分级面板移到底部控制面板上方 */
+    /* .staging-panel {
+        position: fixed;
+        bottom: 105px;
+        right: 10px;
+        left: 10px;
+        width: auto;
+        max-height: 80px;
+        overflow-y: auto;
+    } */
+    
+    /* 底部控制面板进一步优化 */
+    .launch-control-panel {
+        height: 90px;
+        padding: 10px 15px;
+    }
+    
+    .control-buttons-new {
+        gap: 10px;
+    }
+    
+    /* 控制元素进一步缩小 */
+    .control-navigation .nav-bar {
+        width: 50px;
+    }
+    
+    .control-navigation .nav-labels {
+        width: 50px;
+        font-size: 0.65em;
+    }
+    
+    .control-throttle .throttle-slider-horizontal {
+        width: 60px;
+        height: 16px;
+    }
+    
+    .control-throttle .throttle-handle {
+        width: 14px;
+        height: 14px;
+    }
+    
+    .control-btn {
+        padding: 6px 8px;
+        font-size: 0.75em;
+    }
+    
+    .control-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+    
+    .countdown-display {
+        font-size: 0.8em;
+    }
+    
+    /* 操作说明进一步缩小 */
+    .hint-title {
+        font-size: 0.75em;
+    }
+    
+    .hint-item {
+        font-size: 0.6em;
+    }
+    
+    .hint-keys {
+        font-size: 0.55em;
+        min-width: 30px;
     }
 }
 
@@ -1279,4 +1780,206 @@
         opacity: 1;
         transform: translateX(-50%) translateY(-5px);
     }
+}
+
+/* 触屏控制面板在不同屏幕尺寸的适配 */
+@media (max-width: 1023px) {
+    .touch-control-panel {
+        bottom: 120px; /* 桌面底部控制面板高度 */
+    }
+}
+
+@media (max-width: 768px) {
+    .touch-control-panel {
+        bottom: 100px; /* 平板底部控制面板高度 */
+        height: 180px;
+    }
+}
+
+@media (max-width: 480px) {
+    .touch-control-panel {
+        bottom: 90px; /* 手机底部控制面板高度 */
+        height: 160px;
+        padding: 15px;
+    }
+}
+
+/* 极小屏幕适配 */
+@media (max-width: 360px) {
+    /* 右上角控制按钮组极小屏幕调整 */
+    .touch-control-buttons {
+        top: 8px;
+        right: 8px;
+        gap: 6px;
+    }
+    
+    .touch-control-btn {
+        width: 38px;
+        height: 38px;
+    }
+    
+    .touch-control-btn .touch-btn-icon {
+        font-size: 16px;
+    }
+    
+    .launch-header {
+        height: 40px;
+        font-size: 0.8em;
+    }
+    
+    .flight-data-panel {
+        top: 50px;
+        padding: 10px;
+        font-size: 0.75em;
+    }
+    
+    .staging-panel {
+        display: none; /* 在极小屏幕上完全隐藏分级面板 */
+    }
+    
+    .launch-control-panel {
+        height: 80px;
+        padding: 8px 10px;
+    }
+    
+    .control-buttons-new {
+        gap: 8px;
+    }
+    
+    .control-btn {
+        padding: 4px 6px;
+        font-size: 0.7em;
+    }
+    
+    .touch-control-panel {
+        bottom: 80px;
+        height: 140px;
+        padding: 10px;
+    }
+}
+
+/* ============================
+   世界坐标系统样式
+   ============================ */
+
+/* 世界坐标系统 - 发射台 */
+.world-launch-pad {
+    pointer-events: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    transition: all 0.1s linear;
+}
+
+.world-launch-pad .launch-tower-main {
+    width: 12px;
+    height: 150px;
+    background: linear-gradient(to bottom, #666 0%, #444 50%, #333 100%);
+    border: 1px solid #888;
+    border-radius: 2px;
+    position: relative;
+    margin: 0 auto 5px auto;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+}
+
+.world-launch-pad .launch-tower-main::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: -8px;
+    right: -8px;
+    height: 3px;
+    background: #555;
+    border: 1px solid #777;
+    border-radius: 2px;
+}
+
+.world-launch-pad .launch-tower-main::after {
+    content: '';
+    position: absolute;
+    top: 40px;
+    left: -6px;
+    right: -6px;
+    height: 2px;
+    background: #666;
+    border-radius: 1px;
+}
+
+.world-launch-pad .launch-platform {
+    width: 80px;
+    height: 8px;
+    background: linear-gradient(to bottom, #777 0%, #555 100%);
+    border: 1px solid #888;
+    border-radius: 3px;
+    margin: 0 auto;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.world-launch-pad .launch-platform::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -5px;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 5px;
+    background: #666;
+    border: 1px solid #888;
+    border-radius: 2px;
+}
+
+/* 世界坐标系统 - 地面 */
+.world-ground {
+    background: linear-gradient(to bottom, 
+        #4a5d23 0%,     /* 草地绿 */
+        #3a4a1c 30%,    /* 深绿 */
+        #2d3a18 60%,    /* 更深的绿 */
+        #1f2a10 100%    /* 土壤色 */
+    );
+    border-top: 3px solid #5a6d33;
+    pointer-events: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    transition: all 0.1s linear;
+}
+
+.world-ground::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent 0px,
+        transparent 2px,
+        rgba(255,255,255,0.1) 2px,
+        rgba(255,255,255,0.1) 4px
+    );
+    pointer-events: none;
+}
+
+/* 世界坐标系统 - 天空 */
+.world-sky {
+    pointer-events: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    transition: background 2s ease-in-out;
+}
+
+/* 确保火箭容器在正确的层级 */
+.rocket-container {
+    z-index: 10 !important;
+    transition: all 0.1s linear;
+}
+
+/* 隐藏原有的静态发射台元素 */
+.launch-tower,
+.launch-platform,
+.rocket-display::before {
+    display: none !important;
 }

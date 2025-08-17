@@ -333,6 +333,11 @@ export default {
             description: 'Efficient vacuum engine, suitable for upper stages',
             category: 'engines'
         },
+        liquidEngine25k: {
+            name: 'LV-25K Liquid Fuel Engine',
+            description: 'Powerful liquid fuel engine, suitable for heavy launch vehicles',
+            category: 'engines'
+        },
         liquidEngine: {
             name: 'LV-T30 Liquid Fuel Engine',
             description: 'Reliable liquid fuel rocket engine',

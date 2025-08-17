@@ -329,6 +329,11 @@ export default {
             description: '高效真空引擎，适合上面级使用',
             category: 'engines'
         },
+        liquidEngine25k: {
+            name: 'LV-25K 液体燃料引擎',
+            description: '强大的液体燃料引擎，适合重型发射载具',
+            category: 'engines'
+        },
         liquidEngine: {
             name: 'LV-T30 液体燃料引擎',
             description: '可靠的液体燃料火箭引擎',

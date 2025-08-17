@@ -94,6 +94,7 @@ class I18nRocketParts {
         const partKeyMap = {
             'command-pod-mk1': 'commandPod',
             'lv-909-engine': 'liquidEngine909',
+            'lv-25k-engine': 'liquidEngine25k',
             'lv-t30-engine': 'liquidEngine',
             'rt-10-booster': 'solidBooster',
             'fl-t100-fuel-tank': 'fuelTankSmall',

@@ -40,6 +40,7 @@ class LaunchSimulation {
         // 当前激活的级
         this.currentStage = 0;
         this.stages = [];
+        this.separatedPartIds = new Set(); // 跟踪已分离的部件ID
         
         this.initializeStages();
     }
@@ -47,7 +48,7 @@ class LaunchSimulation {
     // 初始化分级信息
     initializeStages() {
         this.stages = this.assembly.getStagingInfo();
-        this.mass = this.assembly.getTotalMass();
+        this.mass = this.assembly.getTotalMass(); // 恢复使用总质量
         
         // 如果没有分级信息（没有分离器），创建一个默认的单级
         if (this.stages.length === 0) {
@@ -122,6 +123,25 @@ class LaunchSimulation {
                            (part.fuelStatus.oxidizer * 0.0055);
             }
         });
+        return totalMass;
+    }
+
+    // 计算当前有效质量（排除已分离的部件）
+    getCurrentStageMass() {
+        let totalMass = 0;
+        
+        // 遍历所有部件，只计算未分离的部件质量
+        this.assembly.parts.forEach(part => {
+            if (!this.separatedPartIds.has(part.id)) {
+                totalMass += part.data.mass;
+                // 添加燃料质量
+                if (part.fuelStatus) {
+                    totalMass += (part.fuelStatus.liquid_fuel * 0.005) + 
+                               (part.fuelStatus.oxidizer * 0.0055);
+                }
+            }
+        });
+        
         return totalMass;
     }
 
@@ -228,16 +248,13 @@ class LaunchSimulation {
             this.handleLanding();
         }
         
-        // 重新起飞检查：如果火箭已着陆但有向上的推力，可以重新起飞
-        if (this.landed && this.altitude === 0 && verticalThrust > 0) {
-            // 计算推重比，如果推力足够大，可以重新起飞
-            const weight = this.mass * 1000 * this.gravity; // 重量（牛顿）
-            const thrustToWeightRatio = verticalThrust / weight; // 使用垂直推力计算推重比
-            
-            if (thrustToWeightRatio > 1.0) { // 推重比大于1才能起飞
+        // 重新起飞检查：如果火箭已着陆但有向上的推力或高度大于0，可以重新起飞
+        if (this.landed) {
+            // 如果火箭高度大于0，说明已经重新起飞
+            if (this.altitude > 0) {
                 this.landed = false; // 取消着陆状态
                 this.landingNotificationShown = false; // 重置着陆通知标志，下次着陆时可以再次显示
-                console.log(`火箭重新起飞！推重比: ${thrustToWeightRatio.toFixed(2)}, landed状态: ${this.landed}`);
+                console.log(`火箭重新起飞！高度: ${this.altitude.toFixed(2)}m, landed状态: ${this.landed}`);
                 
                 // 显示重新起飞通知
                 if (typeof showNotification === 'function') {
@@ -248,6 +265,28 @@ class LaunchSimulation {
                 
                 // 更新状态显示
                 this.updateTakeoffStatus();
+            }
+            // 如果在地面但有足够推力，也可以重新起飞
+            else if (this.altitude === 0 && verticalThrust > 0) {
+                // 计算推重比，如果推力足够大，可以重新起飞
+                const weight = this.mass * 1000 * this.gravity; // 重量（牛顿）
+                const thrustToWeightRatio = verticalThrust / weight; // 使用垂直推力计算推重比
+                
+                if (thrustToWeightRatio > 1.0) { // 推重比大于1才能起飞
+                    this.landed = false; // 取消着陆状态
+                    this.landingNotificationShown = false; // 重置着陆通知标志，下次着陆时可以再次显示
+                    console.log(`火箭重新起飞！推重比: ${thrustToWeightRatio.toFixed(2)}, landed状态: ${this.landed}`);
+                    
+                    // 显示重新起飞通知
+                    if (typeof showNotification === 'function') {
+                        const title = window.i18n ? window.i18n.t('launchPad.notifications.takeoff.title') : '重新起飞';
+                        const message = window.i18n ? window.i18n.t('launchPad.notifications.takeoff.message') : '火箭离开地面！';
+                        showNotification(title, message, 'info');
+                    }
+                    
+                    // 更新状态显示
+                    this.updateTakeoffStatus();
+                }
             }
         }
         
@@ -260,25 +299,15 @@ class LaunchSimulation {
 
     // 计算推力
     calculateThrust() {
-        if (this.currentStage >= this.stages.length) return 0;
+        // 找到所有未分离的引擎
+        const activeEngines = this.assembly.parts.filter(part => 
+            part.data.type === 'engine' && !this.separatedPartIds.has(part.id)
+        );
         
-        const stage = this.stages[this.currentStage];
-        if (!stage) return 0;
-        
-        // 找到当前级的引擎
-        let engines = [];
-        if (stage.engines) {
-            // 如果分级中有引擎列表，使用它
-            engines = stage.engines;
-        } else {
-            // 否则查找所有引擎（适用于单级火箭）
-            engines = this.assembly.parts.filter(part => 
-                part.data.type === 'engine' && this.isPartInCurrentStage(part)
-            );
-        }
+        console.log(`当前级引擎数量: ${activeEngines.length}, 已分离部件: ${this.separatedPartIds.size}`);
         
         let totalThrust = 0;
-        engines.forEach(engine => {
+        activeEngines.forEach(engine => {
             if (this.hasEnoughFuel(engine)) {
                 // 根据高度调整推力（简化的大气效应）
                 const atmosphericPressure = Math.exp(-this.altitude / 8000); // 简化大气模型
@@ -289,7 +318,7 @@ class LaunchSimulation {
                 // 应用节流阀设置
                 const throttledThrust = currentThrust * this.throttle;
                 totalThrust += throttledThrust;
-                console.log(`引擎 ${engine.data.name} 推力: ${throttledThrust.toFixed(1)} kN (${Math.round(this.throttle * 100)}%)`);
+                console.log(`引擎 ${engine.data.name} (ID: ${engine.id}) 推力: ${throttledThrust.toFixed(1)} kN (${Math.round(this.throttle * 100)}%)`);
             }
         });
         
@@ -321,7 +350,7 @@ class LaunchSimulation {
     // 更新质量（燃料消耗）
     updateMass() {
         const engines = this.assembly.parts.filter(part => 
-            part.data.type === 'engine' && this.isPartInCurrentStage(part)
+            part.data.type === 'engine' && !this.separatedPartIds.has(part.id)
         );
         
         engines.forEach(engine => {
@@ -349,31 +378,31 @@ class LaunchSimulation {
             }
         });
         
-        // 重新计算总质量
-        this.mass = this.assembly.getTotalMass();
+        // 重新计算总质量（只计算未分离的部件）
+        this.mass = this.getCurrentStageMass();
     }
 
     // 从当前级的燃料罐中消耗燃料的辅助方法
     consumeFuelFromCurrentStageTanks(consumption, throttleMultiplier = 1) {
-        // 只获取当前级的燃料罐
-        const currentStageFuelTanks = this.assembly.parts.filter(p => 
-            p.data.fuel_capacity && p.fuelStatus && this.isPartInCurrentStage(p)
+        // 只获取未分离的燃料罐
+        const activeFuelTanks = this.assembly.parts.filter(p => 
+            p.data.fuel_capacity && p.fuelStatus && !this.separatedPartIds.has(p.id)
         );
         
-        if (currentStageFuelTanks.length === 0) return;
+        if (activeFuelTanks.length === 0) return;
 
-        // 计算当前级燃料罐的总燃料量
+        // 计算活跃燃料罐的总燃料量
         let totalLiquidFuel = 0;
         let totalOxidizer = 0;
-        currentStageFuelTanks.forEach(tank => {
+        activeFuelTanks.forEach(tank => {
             totalLiquidFuel += tank.fuelStatus.liquid_fuel || 0;
             totalOxidizer += tank.fuelStatus.oxidizer || 0;
         });
 
-        // 按比例从当前级的燃料罐消耗燃料
+        // 按比例从活跃燃料罐消耗燃料
         if (consumption.liquid_fuel && totalLiquidFuel > 0) {
             const liquidFuelToConsume = consumption.liquid_fuel * this.deltaTime * throttleMultiplier;
-            currentStageFuelTanks.forEach(tank => {
+            activeFuelTanks.forEach(tank => {
                 if (tank.fuelStatus.liquid_fuel > 0) {
                     const proportion = tank.fuelStatus.liquid_fuel / totalLiquidFuel;
                     const consumeFromThisTank = liquidFuelToConsume * proportion;
@@ -386,7 +415,7 @@ class LaunchSimulation {
 
         if (consumption.oxidizer && totalOxidizer > 0) {
             const oxidizerToConsume = consumption.oxidizer * this.deltaTime * throttleMultiplier;
-            currentStageFuelTanks.forEach(tank => {
+            activeFuelTanks.forEach(tank => {
                 if (tank.fuelStatus.oxidizer > 0) {
                     const proportion = tank.fuelStatus.oxidizer / totalOxidizer;
                     const consumeFromThisTank = oxidizerToConsume * proportion;
@@ -412,12 +441,12 @@ class LaunchSimulation {
         }
         
         // 检查当前级是否燃料耗尽
-        const currentStageEngines = this.assembly.parts.filter(part => 
-            part.data.type === 'engine' && this.isPartInCurrentStage(part)
+        const activeEngines = this.assembly.parts.filter(part => 
+            part.data.type === 'engine' && !this.separatedPartIds.has(part.id)
         );
         
-        if (currentStageEngines.length === 0) {
-            console.log('当前级没有引擎，尝试分离');
+        if (activeEngines.length === 0) {
+            console.log('当前没有活跃引擎，尝试分离');
             setTimeout(() => {
                 this.activateNextStage();
             }, 500);
@@ -425,18 +454,18 @@ class LaunchSimulation {
         }
         
         // 检查是否还有任何引擎有燃料
-        const hasActiveFuel = currentStageEngines.some(engine => this.hasEnoughFuel(engine));
+        const hasActiveFuel = activeEngines.some(engine => this.hasEnoughFuel(engine));
         
-        // 额外检查：如果引擎依赖燃料罐，检查当前级的燃料罐总量
+        // 额外检查：如果引擎依赖燃料罐，检查活跃燃料罐总量
         if (!hasActiveFuel) {
-            const currentStageFuelTanks = this.assembly.parts.filter(p => 
-                p.data.fuel_capacity && p.fuelStatus && this.isPartInCurrentStage(p)
+            const activeFuelTanks = this.assembly.parts.filter(p => 
+                p.data.fuel_capacity && p.fuelStatus && !this.separatedPartIds.has(p.id)
             );
             
             let totalLiquidFuel = 0;
             let totalOxidizer = 0;
             
-            currentStageFuelTanks.forEach(tank => {
+            activeFuelTanks.forEach(tank => {
                 totalLiquidFuel += tank.fuelStatus.liquid_fuel || 0;
                 totalOxidizer += tank.fuelStatus.oxidizer || 0;
             });
@@ -464,19 +493,53 @@ class LaunchSimulation {
             console.log('已经是最后一级，没有更多分级');
             return false;
         }
-        
+
         const currentStage = this.stages[this.currentStage];
         console.log(`正在分离第${this.currentStage + 1}级:`, currentStage);
         
-        // 如果当前级有分离器，触发分离效果
+        // 记录分级前的质量
+        const massBefore = this.mass;
+        const altitudeBefore = this.altitude;
+        
+        // 如果当前级有分离器，处理分离
         if (currentStage && currentStage.decoupler) {
-            this.showSeparationEffect(currentStage.decoupler);
+            // 获取分离的部件组
+            const separationGroups = this.assembly.getDecouplerSeparationGroups(currentStage.decoupler.id);
+            const separatedParts = [...separationGroups.lowerStage, separationGroups.decoupler];
+            
+            // 将分离的部件标记为已分离
+            separatedParts.forEach(part => {
+                this.separatedPartIds.add(part.id);
+                console.log(`标记部件为已分离: ${part.data.name} (ID: ${part.id})`);
+                
+                // 如果是引擎，关闭其火焰效果
+                if (part.data.type === 'engine') {
+                    const flameElement = document.getElementById(`flame-${part.id}`);
+                    if (flameElement) {
+                        flameElement.style.display = 'none';
+                        flameElement.classList.remove('active');
+                    }
+                }
+            });
+            
+            console.log(`分离了 ${separatedParts.length} 个部件:`, separatedParts.map(p => p.data.name));
         } else {
             console.log('注意：当前级没有分离器，但仍然执行分级');
         }
         
         // 更新分级状态
         this.currentStage++;
+        
+        // 重新初始化当前级别的燃料罐为满燃料状态
+        this.initializeCurrentStageFuelTanks();
+        
+        // 重新计算质量（排除已分离的部件）
+        this.mass = this.getCurrentStageMass();
+        console.log(`分级: ${massBefore.toFixed(2)}t → ${this.mass.toFixed(2)}t (减少 ${(massBefore - this.mass).toFixed(2)}t)`);
+        console.log(`高度保持: ${altitudeBefore.toFixed(1)}m → ${this.altitude.toFixed(1)}m`);
+        
+        // 强制更新显示以避免UI跳跃
+        this.updateDisplay();
         
         // 更新UI
         this.updateStagingUI();
@@ -495,18 +558,41 @@ class LaunchSimulation {
         return true;
     }
 
-    // 显示分离特效
-    showSeparationEffect(decoupler) {
-        const partElement = document.getElementById(`launch-part-${decoupler.id}`);
-        if (partElement) {
-            // 添加分离动画
-            partElement.style.animation = 'separationEffect 2s ease-out forwards';
-            
-            setTimeout(() => {
-                partElement.style.opacity = '0.3';
-                partElement.style.filter = 'grayscale(100%)';
-            }, 2000);
-        }
+    // 重新初始化当前级别的燃料罐为满燃料状态
+    initializeCurrentStageFuelTanks() {
+        // 获取当前级别的所有燃料罐
+        const activeFuelTanks = this.assembly.parts.filter(part => 
+            part.data.fuel_capacity && !this.separatedPartIds.has(part.id)
+        );
+        
+        // 获取当前级别的所有引擎（可能有内置燃料）
+        const activeEngines = this.assembly.parts.filter(part => 
+            part.data.type === 'engine' && part.data.fuel_capacity && !this.separatedPartIds.has(part.id)
+        );
+        
+        console.log(`重新初始化 ${activeFuelTanks.length} 个燃料罐和 ${activeEngines.length} 个带燃料的引擎`);
+        
+        // 重置燃料罐
+        activeFuelTanks.forEach(tank => {
+            if (tank.data.fuel_capacity) {
+                tank.fuelStatus = {
+                    liquid_fuel: tank.data.fuel_capacity.liquid_fuel || 0,
+                    oxidizer: tank.data.fuel_capacity.oxidizer || 0
+                };
+                console.log(`燃料罐 ${tank.data.name} 燃料重置: 液体燃料=${tank.fuelStatus.liquid_fuel}, 氧化剂=${tank.fuelStatus.oxidizer}`);
+            }
+        });
+        
+        // 重置引擎内置燃料
+        activeEngines.forEach(engine => {
+            if (engine.data.fuel_capacity) {
+                engine.fuelStatus = {
+                    liquid_fuel: engine.data.fuel_capacity.liquid_fuel || 0,
+                    oxidizer: engine.data.fuel_capacity.oxidizer || 0
+                };
+                console.log(`引擎 ${engine.data.name} 燃料重置: 液体燃料=${engine.fuelStatus.liquid_fuel}, 氧化剂=${engine.fuelStatus.oxidizer}`);
+            }
+        });
     }
 
     // 更新显示
@@ -550,22 +636,22 @@ class LaunchSimulation {
 
     // 更新燃料显示
     updateFuelDisplay() {
-        // 只显示当前级的燃料罐燃料
-        const currentStageFuelTanks = this.assembly.parts.filter(p => 
-            p.data.fuel_capacity && this.isPartInCurrentStage(p)
+        // 只显示未分离的燃料罐燃料
+        const activeFuelTanks = this.assembly.parts.filter(p => 
+            p.data.fuel_capacity && !this.separatedPartIds.has(p.id)
         );
         
         let currentStageLiquidFuel = 0;
         let currentStageOxidizer = 0;
         
-        currentStageFuelTanks.forEach(tank => {
+        activeFuelTanks.forEach(tank => {
             if (tank.fuelStatus) {
                 currentStageLiquidFuel += tank.fuelStatus.liquid_fuel || 0;
                 currentStageOxidizer += tank.fuelStatus.oxidizer || 0;
             }
         });
 
-        // 同时计算总燃料（用于显示在其他地方）
+        // 同时计算总燃料（所有部件，包括分离的）
         const allFuelTanks = this.assembly.parts.filter(p => p.data.fuel_capacity);
         let totalLiquidFuel = 0;
         let totalOxidizer = 0;
@@ -577,7 +663,7 @@ class LaunchSimulation {
             }
         });
 
-        // 更新主要燃料显示（当前级）
+        // 更新主要燃料显示（当前活跃级）
         if (document.getElementById('liquidFuel')) {
             document.getElementById('liquidFuel').textContent = currentStageLiquidFuel.toFixed(1);
         }
@@ -596,7 +682,7 @@ class LaunchSimulation {
         // 添加当前级燃料信息到控制台（调试用）
         if (Math.floor(Date.now() / 1000) !== this.lastFuelDebugTime) {
             this.lastFuelDebugTime = Math.floor(Date.now() / 1000);
-            console.log(`第${this.currentStage + 1}级燃料 - 液体燃料: ${currentStageLiquidFuel.toFixed(1)}, 氧化剂: ${currentStageOxidizer.toFixed(1)}`);
+            console.log(`活跃级燃料 - 液体燃料: ${currentStageLiquidFuel.toFixed(1)}, 氧化剂: ${currentStageOxidizer.toFixed(1)}`);
             console.log(`总燃料 - 液体燃料: ${totalLiquidFuel.toFixed(1)}, 氧化剂: ${totalOxidizer.toFixed(1)}`);
         }
     }
@@ -629,21 +715,40 @@ class LaunchSimulation {
 
     // 更新视觉效果
     updateVisualEffects() {
-        const engines = this.assembly.parts.filter(part => 
-            part.data.type === 'engine' && this.isPartInCurrentStage(part)
-        );
+        // 获取所有引擎（包括已分离的）以确保正确关闭火焰
+        const allEngines = this.assembly.parts.filter(part => part.data.type === 'engine');
+        const activeEngines = allEngines.filter(engine => !this.separatedPartIds.has(engine.id));
         
-        engines.forEach(engine => {
+        console.log(`更新视觉效果: 总引擎数量 ${allEngines.length}, 当前级引擎数量 ${activeEngines.length}, 已分离部件 ${this.separatedPartIds.size}`);
+        
+        // 首先关闭所有引擎火焰
+        allEngines.forEach(engine => {
             const flameElement = document.getElementById(`flame-${engine.id}`);
             if (flameElement) {
-                if (this.hasEnoughFuel(engine)) {
+                flameElement.classList.remove('active');
+            }
+        });
+        
+        // 然后只为当前级有效的引擎开启火焰
+        activeEngines.forEach(engine => {
+            const flameElement = document.getElementById(`flame-${engine.id}`);
+            if (flameElement) {
+                // 检查引擎是否应该显示火焰：
+                // 1. 必须有足够的燃料
+                // 2. 节流阀必须大于0%
+                const hasEnoughFuel = this.hasEnoughFuel(engine);
+                const hasThrottle = this.throttle > 0;
+                
+                console.log(`引擎 ${engine.data.name} (ID: ${engine.id}): 燃料=${hasEnoughFuel}, 节流阀=${hasThrottle}, 火焰显示=${hasEnoughFuel && hasThrottle}`);
+                
+                if (hasEnoughFuel && hasThrottle) {
                     flameElement.classList.add('active');
-                    // 根据推力调整火焰大小
-                    const thrustRatio = (engine.data.thrust || 0) / 100; // 归一化到0-1
-                    const flameHeight = 40 + thrustRatio * 40; // 40-80px
+                    // 根据推力和节流阀调整火焰大小
+                    const baseThrust = engine.data.thrust || 0;
+                    const actualThrust = baseThrust * this.throttle; // 考虑节流阀
+                    const thrustRatio = actualThrust / 100; // 归一化到0-1
+                    const flameHeight = 20 + thrustRatio * 60; // 20-80px，基于实际推力
                     flameElement.style.height = `${flameHeight}px`;
-                } else {
-                    flameElement.classList.remove('active');
                 }
             }
         });
@@ -702,17 +807,17 @@ class LaunchSimulation {
         }
         
         if (!engine.fuelStatus) {
-            console.log(`引擎 ${engine.data.name} 没有燃料状态，检查当前级燃料罐`);
-            // 只检查当前级燃料罐的燃料总量
-            const currentStageFuelTanks = this.assembly.parts.filter(p => 
-                p.data.fuel_capacity && this.isPartInCurrentStage(p)
+            console.log(`引擎 ${engine.data.name} 没有燃料状态，检查活跃燃料罐`);
+            // 只检查未分离的燃料罐的燃料总量
+            const activeFuelTanks = this.assembly.parts.filter(p => 
+                p.data.fuel_capacity && !this.separatedPartIds.has(p.id)
             );
             
-            if (currentStageFuelTanks.length > 0) {
+            if (activeFuelTanks.length > 0) {
                 let totalLiquidFuel = 0;
                 let totalOxidizer = 0;
                 
-                currentStageFuelTanks.forEach(tank => {
+                activeFuelTanks.forEach(tank => {
                     if (tank.fuelStatus) {
                         totalLiquidFuel += tank.fuelStatus.liquid_fuel || 0;
                         totalOxidizer += tank.fuelStatus.oxidizer || 0;
@@ -723,7 +828,7 @@ class LaunchSimulation {
                 const hasEnoughLiquid = !consumption.liquid_fuel || totalLiquidFuel > 0;
                 const hasEnoughOxidizer = !consumption.oxidizer || totalOxidizer > 0;
                 
-                console.log(`当前级燃料检查: 液体燃料=${totalLiquidFuel.toFixed(1)}, 氧化剂=${totalOxidizer.toFixed(1)}`);
+                console.log(`活跃燃料罐检查: 液体燃料=${totalLiquidFuel.toFixed(1)}, 氧化剂=${totalOxidizer.toFixed(1)}`);
                 return hasEnoughLiquid && hasEnoughOxidizer;
             }
             return false;
@@ -930,6 +1035,11 @@ class LaunchSimulation {
     setThrottle(throttleValue) {
         this.throttle = Math.max(0, Math.min(1, throttleValue));
         console.log(`节流阀设置为: ${Math.round(this.throttle * 100)}%`);
+        
+        // 更新引擎火焰视觉效果
+        if (this.isRunning) {
+            this.updateVisualEffects();
+        }
     }
     
     // 获取当前节流阀设置

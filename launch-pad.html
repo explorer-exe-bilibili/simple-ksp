@@ -178,11 +178,23 @@
             </div>
         </div>
 
+        <!-- 右上角控制按钮组 (移动端) -->
+        <div class="touch-control-buttons" id="touchControlButtons">
+            <button class="touch-control-btn touch-launch-btn" id="touchLaunchBtn">
+                <div class="touch-btn-icon">🚀</div>
+            </button>
+            <button class="touch-control-btn touch-stage-btn" id="touchStageBtn">
+                <div class="touch-btn-icon">⚡</div>
+            </button>
+            <button class="touch-control-btn touch-abort-btn" id="touchAbortBtn">
+                <div class="touch-btn-icon">⏹️</div>
+            </button>
+        </div>
+
         <!-- 触屏控制面板 (只在触屏设备上显示) -->
         <div class="touch-control-panel" id="touchControlPanel">
             <!-- 左侧转向控制区 -->
             <div class="touch-steering-area">
-                <div class="touch-control-title" data-i18n="launchPad.touch.steering">转向</div>
                 <div class="touch-steering-pad" id="touchSteeringPad">
                     <div class="touch-steering-indicator" id="touchSteeringIndicator"></div>
                     <div class="touch-steering-center"></div>
@@ -194,7 +206,6 @@
 
             <!-- 右侧节流阀控制区 -->
             <div class="touch-throttle-area">
-                <div class="touch-control-title" data-i18n="launchPad.touch.throttle">推力</div>
                 <div class="touch-throttle-slider" id="touchThrottleSlider">
                     <div class="touch-throttle-track">
                         <div class="touch-throttle-fill" id="touchThrottleFill"></div>
@@ -204,22 +215,6 @@
                 <div class="touch-throttle-display">
                     <span id="touchThrottleValue">0%</span>
                 </div>
-            </div>
-
-            <!-- 中央主要控制按钮 -->
-            <div class="touch-main-controls">
-                <button class="touch-main-btn touch-launch-btn" id="touchLaunchBtn">
-                    <div class="touch-btn-icon">🚀</div>
-                    <div class="touch-btn-text" data-i18n="launchPad.touch.launch">发射</div>
-                </button>
-                <button class="touch-main-btn touch-stage-btn" id="touchStageBtn">
-                    <div class="touch-btn-icon">⚡</div>
-                    <div class="touch-btn-text" data-i18n="launchPad.touch.stage">分离</div>
-                </button>
-                <button class="touch-main-btn touch-abort-btn" id="touchAbortBtn">
-                    <div class="touch-btn-icon">🛑</div>
-                    <div class="touch-btn-text" data-i18n="launchPad.touch.abort">中止</div>
-                </button>
             </div>
         </div>
 

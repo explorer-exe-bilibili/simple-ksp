@@ -49,8 +49,40 @@ class RocketParts {
             descriptionKey: 'parts.liquidEngine909.description',
             description: '高效真空引擎，适合上面级使用',
             fuel_consumption: {
-                liquid_fuel: 2.8, // 单位/秒
-                oxidizer: 3.4 // 单位/秒
+                liquid_fuel: 1.4, // 单位/秒
+                oxidizer: 1.7 // 单位/秒
+            },
+            stats: {
+                max_temp: 2000,
+                gimbal_range: 4.0,
+                throttle_range: { min: 0.0, max: 1.0 }
+            }
+        },
+        
+        // 液体燃料引擎
+        'lv-25k-engine': {
+            id: 'lv-25k-engine',
+            nameKey: 'parts.liquidEngine25k.name',
+            name: 'LV-25K 液体燃料引擎',
+            category: 'propulsion',
+            type: 'engine',
+            mass: 1, // 吨
+            cost: 390,
+            thrust: 2000, // kN (真空)
+            thrust_atm: 2000, // kN (海平面)
+            isp_vacuum: 345, // 秒
+            isp_atm: 300, // 秒
+            dimensions: { width: 1.25, height: 1.0 },
+            attachment_points: {
+                top: { x: 0, y: -0.5, size: 1.25 },
+                bottom: { x: 0, y: 0.5, size: 1.25 }
+            },
+            svg_path: 'svg/liquid-engine.svg',
+            descriptionKey: 'parts.liquidEngine25k.description',
+            description: '高效真空引擎，适合下面级使用',
+            fuel_consumption: {
+                liquid_fuel: 5.6, // 单位/秒
+                oxidizer: 6.8 // 单位/秒
             },
             stats: {
                 max_temp: 2000,
@@ -308,8 +340,8 @@ class RocketAssembly {
             connections: []
         };
 
-        // 如果是燃料罐，初始化燃料状态
-        if (partData.type === 'fuel-tank' && partData.fuel_capacity) {
+        // 如果是燃料罐或有燃料容量的引擎，初始化燃料状态
+        if ((partData.type === 'fuel-tank' || partData.type === 'engine') && partData.fuel_capacity) {
             assemblyPart.fuelStatus = {
                 liquid_fuel: partData.fuel_capacity.liquid_fuel || 0,
                 oxidizer: partData.fuel_capacity.oxidizer || 0
