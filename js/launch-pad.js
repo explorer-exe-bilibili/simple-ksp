@@ -90,6 +90,9 @@ class LaunchPad {
         // 初始化节流阀控制
         this.initializeThrottleControl();
         
+        // 初始化导航条（设置初始状态）
+        this.updateNavigationPointer();
+        
         // 初始化键盘控制
         this.initializeKeyboardControls();
         
@@ -710,6 +713,9 @@ class LaunchPad {
         const remainingDeltaV = stagingInfo.slice(this.simulation.currentStage).reduce((sum, stage) => sum + stage.deltaV, 0);
         document.getElementById('deltaV').textContent = `${remainingDeltaV.toFixed(0)} m/s`;
         
+        // 更新导航条指针位置（以当前朝向为中心）
+        this.updateNavigationPointer();
+        
         // 更新轨道数据
         this.updateOrbitalData();
         
@@ -837,6 +843,192 @@ class LaunchPad {
         const escapeVelocityElement = document.getElementById('escapeVelocity');
         if (escapeVelocityElement) {
             escapeVelocityElement.textContent = `${elements.escapeVelocity.toFixed(0)} m/s`;
+        }
+    }
+    
+    // 更新导航条指针位置（以当前朝向为中心）
+    updateNavigationPointer() {
+        const navPointer = document.getElementById('navPointer');
+        const navCenter = document.querySelector('.nav-center');
+        const navLabels = document.querySelector('.nav-labels');
+        const navGuidance = document.getElementById('navGuidance');
+        const navHint = document.getElementById('navHint');
+        
+        if (!navPointer || !navCenter || !navLabels) return;
+        
+        // 获取当前转向角度（相对于垂直向上）
+        const currentAngle = this.simulation ? (this.simulation.steeringAngle || 0) : 0;
+        
+        // 导航条的范围设为 ±45° 
+        const maxAngle = 45;
+        const navBarWidth = 80; // 导航条宽度（像素）
+        
+        // 计算指针位置（以当前朝向为中心）
+        // 当前朝向在导航条中心，左右各显示45°范围
+        const angleOffset = 0; // 当前朝向始终在中心
+        const pixelOffset = (angleOffset / maxAngle) * (navBarWidth / 2);
+        const pointerPosition = 50 + (pixelOffset / navBarWidth) * 100; // 转换为百分比
+        
+        // 限制指针位置在导航条范围内
+        const clampedPosition = Math.max(0, Math.min(100, pointerPosition));
+        
+        // 更新指针位置
+        navPointer.style.left = `${clampedPosition}%`;
+        
+        // 计算入轨建议角度
+        const guidanceData = this.calculateOrbitGuidance();
+        
+        // 更新标签以反映当前朝向
+        const leftAngle = currentAngle - maxAngle;
+        const rightAngle = currentAngle + maxAngle;
+        const centerAngle = currentAngle;
+        
+        const leftLabel = navLabels.querySelector('.nav-label.left');
+        const centerLabel = navLabels.querySelector('.nav-label.center');
+        const rightLabel = navLabels.querySelector('.nav-label.right');
+        
+        if (leftLabel && centerLabel && rightLabel) {
+            leftLabel.textContent = `${leftAngle.toFixed(0)}°`;
+            centerLabel.textContent = `${centerAngle.toFixed(0)}°`;
+            rightLabel.textContent = `${rightAngle.toFixed(0)}°`;
+        }
+        
+        // 更新入轨指导显示
+        if (navGuidance && navHint && guidanceData.showGuidance) {
+            const targetAngle = guidanceData.targetAngle;
+            const angleDiff = targetAngle - currentAngle;
+            
+            // 计算建议角度在导航条上的位置
+            if (Math.abs(angleDiff) <= maxAngle) {
+                const guidancePosition = 50 + (angleDiff / maxAngle) * 50; // 转换为百分比
+                const clampedGuidancePosition = Math.max(5, Math.min(95, guidancePosition));
+                
+                navGuidance.style.left = `${clampedGuidancePosition}%`;
+                navGuidance.classList.add('visible');
+                
+                // 显示提示文字
+                navHint.textContent = guidanceData.hint;
+                navHint.classList.add('visible');
+            } else {
+                // 建议角度超出显示范围
+                navGuidance.classList.remove('visible');
+                navHint.textContent = guidanceData.hint;
+                navHint.classList.add('visible');
+            }
+        } else if (navGuidance && navHint) {
+            // 隐藏指导
+            navGuidance.classList.remove('visible');
+            navHint.classList.remove('visible');
+        }
+        
+        // 更新中心标记的颜色，让它更明显地表示当前朝向
+        if (navCenter) {
+            navCenter.style.background = currentAngle === 0 ? '#00ff00' : '#ffaa00';
+            navCenter.style.boxShadow = `0 0 8px ${currentAngle === 0 ? '#00ff00' : '#ffaa00'}`;
+        }
+    }
+    
+    // 计算入轨指导建议
+    calculateOrbitGuidance() {
+        if (!this.simulation || !this.simulation.isRunning) {
+            return { showGuidance: false };
+        }
+        
+        const altitude = this.simulation.altitude;
+        const velocity = this.simulation.velocity;
+        const horizontalVelocity = this.simulation.horizontalVelocity;
+        const currentAngle = this.simulation.steeringAngle || 0;
+        const totalVelocity = Math.sqrt(velocity * velocity + horizontalVelocity * horizontalVelocity);
+        
+        // 入轨阶段判断和建议
+        if (altitude < 1000) {
+            // 起飞阶段：垂直爬升
+            return {
+                showGuidance: true,
+                targetAngle: 0,
+                hint: "垂直爬升",
+                phase: "launch"
+            };
+        } else if (altitude < 8000) {
+            // 重力转向开始阶段：轻微东向倾斜
+            const progress = altitude / 8000; // 0 到 1
+            const targetAngle = progress * 10; // 从0°到10°
+            return {
+                showGuidance: true,
+                targetAngle: targetAngle,
+                hint: `重力转向 ${targetAngle.toFixed(0)}°`,
+                phase: "gravity_turn_start"
+            };
+        } else if (altitude < 40000) {
+            // 重力转向主要阶段：逐渐倾斜向东
+            const progress = (altitude - 8000) / 32000; // 0 到 1
+            const targetAngle = 10 + progress * 35; // 从10°到45°
+            return {
+                showGuidance: true,
+                targetAngle: targetAngle,
+                hint: `重力转向 ${targetAngle.toFixed(0)}°`,
+                phase: "gravity_turn_main"
+            };
+        } else if (altitude < 70000) {
+            // 轨道插入准备阶段
+            const progress = (altitude - 40000) / 30000; // 0 到 1
+            
+            // 根据当前速度调整目标角度
+            if (totalVelocity < 3000) {
+                // 速度不够，继续倾斜加速
+                const targetAngle = 45 + progress * 30; // 从45°到75°
+                return {
+                    showGuidance: true,
+                    targetAngle: targetAngle,
+                    hint: `加速倾斜 ${targetAngle.toFixed(0)}°`,
+                    phase: "acceleration"
+                };
+            } else {
+                // 速度足够，准备水平
+                const targetAngle = 75 + progress * 15; // 从75°到90°
+                return {
+                    showGuidance: true,
+                    targetAngle: targetAngle,
+                    hint: `准备水平 ${targetAngle.toFixed(0)}°`,
+                    phase: "pre_orbital"
+                };
+            }
+        } else {
+            // 轨道插入阶段：水平飞行建立轨道
+            const orbitalVelocity = 7200; // 调整为新的轨道速度阈值
+            
+            if (totalVelocity < orbitalVelocity * 0.85) {
+                return {
+                    showGuidance: true,
+                    targetAngle: 90,
+                    hint: `水平加速 ${Math.round(totalVelocity)}/${orbitalVelocity}m/s`,
+                    phase: "orbital_insertion"
+                };
+            } else if (this.simulation.inOrbit) {
+                return {
+                    showGuidance: false,
+                    hint: "🛰️ 入轨成功！",
+                    phase: "orbital"
+                };
+            } else {
+                // 接近轨道速度但还未入轨
+                const horizontalRatio = Math.abs(horizontalVelocity) / totalVelocity;
+                if (horizontalRatio < 0.6) { // 调整为新的水平速度要求
+                    return {
+                        showGuidance: true,
+                        targetAngle: 90,
+                        hint: "增加水平速度",
+                        phase: "circularization"
+                    };
+                } else {
+                    return {
+                        showGuidance: true,
+                        targetAngle: 90,
+                        hint: "保持水平建立轨道",
+                        phase: "circularization"
+                    };
+                }
+            }
         }
     }
     

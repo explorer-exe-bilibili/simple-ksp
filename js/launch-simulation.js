@@ -27,8 +27,8 @@ class LaunchSimulation {
         this.earthRadius = 6371000; // 地球半径（米）
         this.earthMass = 5.972e24;  // 地球质量（千克）
         this.gravitationalConstant = 6.674e-11; // 万有引力常数
-        this.orbitalVelocityThreshold = 7800; // 轨道速度阈值（m/s）
-        this.minOrbitalAltitude = 150000; // 最小轨道高度（150km）
+        this.orbitalVelocityThreshold = 7200; // 轨道速度阈值（m/s）- 降低到更现实的值
+        this.minOrbitalAltitude = 80000; // 最小轨道高度（80km）- 降低门槛
         
         // 轨道状态
         this.inOrbit = false;           // 是否已入轨
@@ -395,16 +395,17 @@ class LaunchSimulation {
         // 计算当前总速度
         const totalVelocity = Math.sqrt(this.velocity * this.velocity + this.horizontalVelocity * this.horizontalVelocity);
         
-        // 入轨条件：
-        // 1. 高度大于最小轨道高度 (150km)
-        // 2. 总速度大于轨道速度阈值 (7.8km/s)
-        // 3. 水平速度分量足够大 (至少占总速度的70%)
+        // 修改后的入轨条件（更加宽松和现实）：
+        // 1. 高度大于最小轨道高度 (80km)
+        // 2. 总速度大于轨道速度阈值 (7.2km/s)
+        // 3. 水平速度分量足够大 (至少占总速度的60%)
         // 4. 轨道偏心率小于1（椭圆轨道）
+        // 5. 近地点高度大于20km（降低要求，允许高偏心率轨道）
         const horizontalVelocityRatio = Math.abs(this.horizontalVelocity) / totalVelocity;
         
         const meetsAltitudeRequirement = this.altitude >= this.minOrbitalAltitude;
         const meetsVelocityRequirement = totalVelocity >= this.orbitalVelocityThreshold;
-        const meetsHorizontalRequirement = horizontalVelocityRatio >= 0.7;
+        const meetsHorizontalRequirement = horizontalVelocityRatio >= 0.6; // 降低到60%
         const meetsEccentricityRequirement = this.orbitalElements.eccentricity < 1.0 && 
                                              this.orbitalElements.eccentricity >= 0;
         const meetsPeriapsisRequirement = this.orbitalElements.periapsis > 0;
@@ -412,7 +413,19 @@ class LaunchSimulation {
         const wasInOrbit = this.inOrbit;
         this.inOrbit = meetsAltitudeRequirement && meetsVelocityRequirement && 
                        meetsHorizontalRequirement && meetsEccentricityRequirement &&
-                       meetsPeriapsisRequirement;
+                       adjustedPeriapsisRequirement;
+        
+        // 调试输出入轨条件检查
+        if (Math.floor(Date.now() / 1000) !== this.lastDebugTime) {
+            console.log(`入轨条件检查:`);
+            console.log(`  高度: ${(this.altitude/1000).toFixed(1)}km >= ${(this.minOrbitalAltitude/1000)}km: ${meetsAltitudeRequirement}`);
+            console.log(`  速度: ${totalVelocity.toFixed(1)}m/s >= ${this.orbitalVelocityThreshold}m/s: ${meetsVelocityRequirement}`);
+            console.log(`  水平速度比: ${(horizontalVelocityRatio*100).toFixed(1)}% >= 60%: ${meetsHorizontalRequirement}`);
+            console.log(`  偏心率: ${this.orbitalElements.eccentricity.toFixed(3)} < 1.0: ${meetsEccentricityRequirement}`);
+            console.log(`  近地点: ${(this.orbitalElements.periapsis/1000).toFixed(1)}km > ${isStillClimbing ? '0' : '20'}km: ${adjustedPeriapsisRequirement}`);
+            console.log(`  垂直速度: ${this.velocity.toFixed(1)}m/s (${isStillClimbing ? '爬升中' : '稳定'})`);
+            console.log(`  入轨状态: ${this.inOrbit}`);
+        }
         
         // 如果刚刚入轨，显示通知
         if (this.inOrbit && !wasInOrbit && !this.orbitalNotificationShown) {
@@ -536,8 +549,8 @@ class LaunchSimulation {
         // 当前总速度
         const totalVelocity = Math.sqrt(this.velocity * this.velocity + this.horizontalVelocity * this.horizontalVelocity);
         
-        // 当前轨道速度（主要是水平分量）
-        const orbitalVelocity = Math.abs(this.horizontalVelocity);
+        // 当前轨道速度（总速度，用于轨道计算）
+        const orbitalVelocity = totalVelocity;
         
         // 计算当前位置的圆轨道速度
         const circularVelocity = Math.sqrt(this.gravitationalConstant * this.earthMass / currentRadius);
@@ -560,8 +573,8 @@ class LaunchSimulation {
             // 椭圆轨道
             semiMajorAxis = -(this.gravitationalConstant * this.earthMass) / (2 * specificOrbitalEnergy);
             
-            // 计算角动量
-            const angularMomentum = currentRadius * orbitalVelocity;
+            // 计算角动量（使用水平速度分量）
+            const angularMomentum = currentRadius * Math.abs(this.horizontalVelocity);
             
             // 计算偏心率
             const h2 = angularMomentum * angularMomentum;
@@ -572,8 +585,24 @@ class LaunchSimulation {
             apoapsis = semiMajorAxis * (1 + eccentricity) - this.earthRadius;
             periapsis = semiMajorAxis * (1 - eccentricity) - this.earthRadius;
             
-            // 确保近地点不为负数
-            periapsis = Math.max(0, periapsis);
+            // 对于还在上升的情况，如果计算出近地点为负，进行特殊处理
+            if (periapsis < 0 && this.velocity > 0) {
+                // 火箭还在上升，轨道还没有完全建立
+                // 基于当前轨迹预测近地点
+                const currentSpeed = totalVelocity;
+                const minOrbitalSpeed = Math.sqrt(this.gravitationalConstant * this.earthMass / currentRadius);
+                
+                if (currentSpeed >= minOrbitalSpeed * 0.9) {
+                    // 速度接近轨道速度，预测一个合理的近地点
+                    const velocityRatio = currentSpeed / minOrbitalSpeed;
+                    periapsis = Math.max(0, this.altitude * (velocityRatio - 1) * 0.5);
+                } else {
+                    periapsis = 0; // 速度不足，会坠落
+                }
+            } else {
+                // 确保近地点不为负数
+                periapsis = Math.max(0, periapsis);
+            }
             
             // 计算轨道周期（开普勒第三定律）
             orbitalPeriod = 2 * Math.PI * Math.sqrt((semiMajorAxis * semiMajorAxis * semiMajorAxis) / 
