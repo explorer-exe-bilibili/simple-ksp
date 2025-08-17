@@ -39,6 +39,9 @@ class LaunchPad {
         this.initializeUI();
         this.loadRocketData();
         
+        // 初始化世界坐标系统（在发射前显示地面和天空）
+        this.initializeWorldCoordinateSystem();
+        
         // 确保页面有焦点以接收键盘事件
         window.focus();
         
@@ -64,6 +67,18 @@ class LaunchPad {
         this.stopContinuousInput();
     }
 
+    // 初始化世界坐标系统
+    initializeWorldCoordinateSystem() {
+        // 在发射前就显示地面和天空，以火箭当前位置为参考点
+        const altitude = 0; // 发射前高度为0
+        const horizontalPos = 0; // 发射前水平位置为0
+        
+        // 创建初始的世界背景
+        this.updateWorldBackground(altitude, horizontalPos);
+        
+        console.log('世界坐标系统已初始化');
+    }
+    
     // 初始化UI
     initializeUI() {
         // 隐藏加载覆盖层
@@ -199,11 +214,17 @@ class LaunchPad {
         // 创建火箭容器
         const rocketContainer = document.createElement('div');
         rocketContainer.className = 'rocket-container';
-        rocketContainer.style.position = 'relative';
-        rocketContainer.style.transform = `scale(${scale})`;
         
-        // 设置火箭容器的中心位置
-        this.centerRocketView(rocketContainer);
+        // 使用世界坐标系统的定位方式
+        const displayRect = display.getBoundingClientRect();
+        const centerX = displayRect.width / 2;
+        const centerY = displayRect.height / 2;
+        
+        rocketContainer.style.position = 'absolute';
+        rocketContainer.style.left = `${centerX}px`;
+        rocketContainer.style.top = `${centerY}px`;
+        rocketContainer.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        rocketContainer.style.zIndex = '10';
         
         // 如果火箭已着陆且高度为0，添加着陆样式和标识
         if (this.simulation && this.simulation.landed && this.simulation.altitude <= 0) {
@@ -302,8 +323,12 @@ class LaunchPad {
         return Math.min(scaleX, scaleY, 1); // 不超过原始大小
     }
 
-    // 设置火箭为视角中心
+    // 设置火箭为视角中心（已被世界坐标系统取代）
     centerRocketView(rocketContainer) {
+        // 此方法已被世界坐标系统取代，不再使用
+        // 保留以防需要回滚，但不执行任何操作
+        
+        /*
         const displayArea = document.getElementById('rocketDisplay');
         if (!displayArea) return;
 
@@ -324,6 +349,7 @@ class LaunchPad {
 
         // 飞行中的定位在 updateCameraView 中处理
         console.log('火箭定位：飞行模式 - 由updateCameraView处理');
+        */
     }
 
     // 渲染单个火箭部件
@@ -362,6 +388,14 @@ class LaunchPad {
                         const flame = document.createElement('div');
                         flame.className = 'engine-flame';
                         flame.id = `flame-${part.id}`;
+                        
+                        // 将火焰定位在引擎底部外面，而不是引擎内部
+                        flame.style.position = 'absolute';
+                        flame.style.left = '50%';
+                        flame.style.top = '100%'; // 引擎底部外面
+                        flame.style.transform = 'translateX(-50%)';
+                        flame.style.zIndex = '-1'; // 确保火焰在引擎后面
+                        
                         partElement.appendChild(flame);
                     }
                 })
@@ -446,7 +480,7 @@ class LaunchPad {
         }, 100); // 每100ms更新一次
     }
     
-    // 更新相机视角（平滑跟随火箭）
+    // 更新相机视角（火箭始终保持在屏幕中心）
     updateCameraView() {
         if (!this.simulation) return;
         
@@ -460,32 +494,38 @@ class LaunchPad {
         const centerX = displayRect.width / 2;
         const centerY = displayRect.height / 2;
         
-        // 获取火箭的世界坐标
+        // 获取火箭的世界坐标和状态
         const altitude = this.simulation.altitude;
         const horizontalPos = this.simulation.horizontalPosition;
+        const steeringAngle = this.simulation.steeringAngle || 0;
         
-        // 火箭始终保持在屏幕中心
+        // 计算缩放比例（基于高度，但保持可读性）
+        const minScale = 0.3;
+        const maxScale = 1.0;
+        const scaleAltitude = 2000; // 2000米时开始缩小
+        const scale = Math.max(minScale, maxScale - (altitude / scaleAltitude) * (maxScale - minScale));
+        
+        // 火箭始终保持在屏幕中心，不受任何其他因素影响
         rocketContainer.style.position = 'absolute';
         rocketContainer.style.left = `${centerX}px`;
         rocketContainer.style.top = `${centerY}px`;
-        
-        // 获取当前缩放比例
-        const currentTransform = rocketContainer.style.transform;
-        const scaleMatch = currentTransform.match(/scale\(([^)]+)\)/);
-        const currentScale = scaleMatch ? scaleMatch[1] : '1';
-        rocketContainer.style.transform = `scale(${currentScale}) translate(-50%, -50%)`;
+        rocketContainer.style.transform = `translate(-50%, -50%) scale(${scale}) rotate(${steeringAngle}deg)`;
+        rocketContainer.style.zIndex = '10';
         
         // 更新世界背景位置（相对于火箭移动）
         this.updateWorldBackground(altitude, horizontalPos);
         
         // 调试信息
         if (Math.floor(Date.now() / 1000) % 5 === 0 && Date.now() % 1000 < 100) {
-            console.log(`世界坐标: 高度=${altitude.toFixed(1)}m, 水平=${horizontalPos.toFixed(1)}m`);
+            console.log(`世界坐标: 高度=${altitude.toFixed(1)}m, 水平=${horizontalPos.toFixed(1)}m, 角度=${steeringAngle.toFixed(1)}°, 缩放=${scale.toFixed(2)}`);
         }
     }
     
     // 更新世界背景（发射台、地面等相对于火箭移动）
     updateWorldBackground(altitude, horizontalPos) {
+        const worldBackground = document.getElementById('worldBackground');
+        if (!worldBackground) return;
+        
         const displayArea = document.getElementById('rocketDisplay');
         if (!displayArea) return;
         
@@ -510,8 +550,11 @@ class LaunchPad {
     
     // 更新发射台位置
     updateLaunchPad(screenX, screenY) {
+        const worldBackground = document.getElementById('worldBackground');
+        if (!worldBackground) return;
+        
         // 查找或创建发射台元素
-        let launchPad = document.querySelector('.world-launch-pad');
+        let launchPad = worldBackground.querySelector('.world-launch-pad');
         if (!launchPad) {
             launchPad = document.createElement('div');
             launchPad.className = 'world-launch-pad';
@@ -519,7 +562,7 @@ class LaunchPad {
                 <div class="launch-tower-main"></div>
                 <div class="launch-platform"></div>
             `;
-            document.getElementById('rocketDisplay').appendChild(launchPad);
+            worldBackground.appendChild(launchPad);
         }
         
         // 更新发射台位置
@@ -532,6 +575,9 @@ class LaunchPad {
     
     // 更新地面和天空
     updateGroundAndSky(altitude, horizontalPos, pixelsPerMeter) {
+        const worldBackground = document.getElementById('worldBackground');
+        if (!worldBackground) return;
+        
         const displayArea = document.getElementById('rocketDisplay');
         const displayRect = displayArea.getBoundingClientRect();
         const centerX = displayRect.width / 2;
@@ -541,11 +587,11 @@ class LaunchPad {
         const groundScreenY = centerY + (altitude * pixelsPerMeter);
         
         // 查找或创建地面元素
-        let ground = document.querySelector('.world-ground');
+        let ground = worldBackground.querySelector('.world-ground');
         if (!ground) {
             ground = document.createElement('div');
             ground.className = 'world-ground';
-            displayArea.appendChild(ground);
+            worldBackground.appendChild(ground);
         }
         
         // 更新地面位置和大小
@@ -557,11 +603,11 @@ class LaunchPad {
         ground.style.zIndex = '1';
         
         // 查找或创建天空渐变元素
-        let sky = document.querySelector('.world-sky');
+        let sky = worldBackground.querySelector('.world-sky');
         if (!sky) {
             sky = document.createElement('div');
             sky.className = 'world-sky';
-            displayArea.appendChild(sky);
+            worldBackground.appendChild(sky);
         }
         
         // 根据高度调整天空颜色
@@ -638,11 +684,21 @@ class LaunchPad {
     updateLiveFlightData() {
         if (!this.simulation) return;
         
-        // 更新实时数据
+        // 更新基础数据
         document.getElementById('altitude').textContent = `${this.simulation.altitude.toFixed(1)} m`;
         document.getElementById('velocity').textContent = `${this.simulation.velocity.toFixed(1)} m/s`;
         document.getElementById('acceleration').textContent = `${this.simulation.acceleration.toFixed(2)} m/s²`;
         document.getElementById('mass').textContent = `${this.simulation.mass.toFixed(2)} t`;
+        
+        // 更新水平数据
+        const horizontalVelocityElement = document.getElementById('horizontalVelocity');
+        const horizontalPositionElement = document.getElementById('horizontalPosition');
+        if (horizontalVelocityElement) {
+            horizontalVelocityElement.textContent = `${this.simulation.horizontalVelocity.toFixed(1)} m/s`;
+        }
+        if (horizontalPositionElement) {
+            horizontalPositionElement.textContent = `${Math.round(this.simulation.horizontalPosition)} m`;
+        }
         
         // 计算当前推重比
         const totalThrust = this.simulation.calculateThrust() / 1000; // 转换为kN
@@ -654,8 +710,48 @@ class LaunchPad {
         const remainingDeltaV = stagingInfo.slice(this.simulation.currentStage).reduce((sum, stage) => sum + stage.deltaV, 0);
         document.getElementById('deltaV').textContent = `${remainingDeltaV.toFixed(0)} m/s`;
         
+        // 更新轨道数据
+        this.updateOrbitalData();
+        
         // 更新当前级燃料显示
         this.updateCurrentStageFuel();
+    }
+    
+    // 更新轨道数据显示
+    updateOrbitalData() {
+        if (!this.simulation) return;
+        
+        // 计算总速度
+        const totalVelocity = Math.sqrt(
+            this.simulation.velocity * this.simulation.velocity + 
+            this.simulation.horizontalVelocity * this.simulation.horizontalVelocity
+        );
+        
+        // 计算距地心距离
+        const distanceFromCenter = (this.simulation.earthRadius + this.simulation.altitude) / 1000; // 转换为km
+        
+        // 更新显示
+        const totalVelocityElement = document.getElementById('totalVelocity');
+        const orbitalStatusElement = document.getElementById('orbitalStatus');
+        const distanceFromCenterElement = document.getElementById('distanceFromCenter');
+        
+        if (totalVelocityElement) {
+            totalVelocityElement.textContent = `${totalVelocity.toFixed(1)} m/s`;
+        }
+        
+        if (orbitalStatusElement) {
+            if (this.simulation.inOrbit) {
+                orbitalStatusElement.textContent = '🛰️ 在轨道';
+                orbitalStatusElement.style.color = '#00ff00';
+            } else {
+                orbitalStatusElement.textContent = '🚀 亚轨道';
+                orbitalStatusElement.style.color = '#ffaa00';
+            }
+        }
+        
+        if (distanceFromCenterElement) {
+            distanceFromCenterElement.textContent = `${distanceFromCenter.toFixed(1)} km`;
+        }
     }
     
     // 更新当前级燃料显示

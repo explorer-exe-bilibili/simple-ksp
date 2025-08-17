@@ -18,10 +18,21 @@ class LaunchSimulation {
         this.mass = 0;              // 当前质量 (吨)
         
         // 环境参数
-        this.gravity = 9.81;        // 重力加速度
+        this.gravity = 9.81;        // 海平面重力加速度
         this.airDensity = 1.225;    // 海平面空气密度
         this.dragCoefficient = 0.3; // 阻力系数（火箭形状优化）
         this.crossSectionArea = 1.0; // 横截面积（平方米）
+        
+        // 地球参数（用于轨道力学计算）
+        this.earthRadius = 6371000; // 地球半径（米）
+        this.earthMass = 5.972e24;  // 地球质量（千克）
+        this.gravitationalConstant = 6.674e-11; // 万有引力常数
+        this.orbitalVelocityThreshold = 7800; // 轨道速度阈值（m/s）
+        this.minOrbitalAltitude = 150000; // 最小轨道高度（150km）
+        
+        // 轨道状态
+        this.inOrbit = false;           // 是否已入轨
+        this.orbitalNotificationShown = false; // 入轨通知是否已显示
         
         // 时间步长
         this.deltaTime = 0.1;       // 100ms per step
@@ -33,8 +44,7 @@ class LaunchSimulation {
         this.throttle = 1.0;        // 节流阀设置 (0.0-1.0)
         
         // 转向控制
-        this.steeringAngle = 0;     // 转向角度 (-90° 到 +90°, 0°为垂直向上)
-        this.maxSteeringAngle = 45; // 最大转向角度
+        this.steeringAngle = 0;     // 转向角度 (无限制，0°为垂直向上)
         this.steeringStep = 1;      // 每次调整的转向步长（更小的步长实现平滑控制）
         
         // 当前激活的级
@@ -160,6 +170,8 @@ class LaunchSimulation {
         this.acceleration = 0;
         this.horizontalAcceleration = 0;
         this.steeringAngle = 0;
+        this.inOrbit = false;
+        this.orbitalNotificationShown = false;
         this.crashed = false;
         this.landed = false;
         this.landingNotificationShown = false; // 重置着陆通知标志
@@ -210,8 +222,10 @@ class LaunchSimulation {
         const verticalDrag = this.calculateDrag(this.velocity);
         const horizontalDrag = this.calculateDrag(this.horizontalVelocity);
         
-        // 计算重力（只有垂直分量，向下为负）
-        const gravityForce = -(this.mass * 1000 * this.gravity);
+        // 计算向心重力（指向地心，随高度衰减）
+        const currentRadius = this.earthRadius + this.altitude;
+        const gravitationalAcceleration = (this.gravitationalConstant * this.earthMass) / (currentRadius * currentRadius);
+        const gravityForce = -(this.mass * 1000 * gravitationalAcceleration);
         
         // 计算净力
         const netVerticalForce = verticalThrust + gravityForce + verticalDrag;
@@ -221,19 +235,23 @@ class LaunchSimulation {
         this.acceleration = netVerticalForce / (this.mass * 1000);
         this.horizontalAcceleration = netHorizontalForce / (this.mass * 1000);
         
+        // 检查轨道状态
+        this.checkOrbitalStatus();
+        
         // 调试输出（每秒输出一次）
         if (Math.floor(Date.now() / 1000) !== this.lastDebugTime) {
             this.lastDebugTime = Math.floor(Date.now() / 1000);
+            const totalVelocity = Math.sqrt(this.velocity * this.velocity + this.horizontalVelocity * this.horizontalVelocity);
             console.log(`物理状态:`);
             console.log(`  转向角度: ${this.steeringAngle.toFixed(1)}°`);
             console.log(`  总推力: ${(totalThrust/1000).toFixed(1)}kN`);
-            console.log(`  垂直推力: ${(verticalThrust/1000).toFixed(1)}kN`);
-            console.log(`  水平推力: ${(horizontalThrust/1000).toFixed(1)}kN`);
-            console.log(`  重力: ${(Math.abs(gravityForce)/1000).toFixed(1)}kN (向下)`);
-            console.log(`  垂直净力: ${(netVerticalForce/1000).toFixed(1)}kN, 加速度: ${this.acceleration.toFixed(2)}m/s²`);
-            console.log(`  水平净力: ${(netHorizontalForce/1000).toFixed(1)}kN, 加速度: ${this.horizontalAcceleration.toFixed(2)}m/s²`);
-            console.log(`  垂直速度: ${this.velocity.toFixed(1)}m/s, 高度: ${this.altitude.toFixed(1)}m`);
-            console.log(`  水平速度: ${this.horizontalVelocity.toFixed(1)}m/s, 水平位置: ${this.horizontalPosition.toFixed(1)}m`);
+            console.log(`  重力加速度: ${gravitationalAcceleration.toFixed(3)}m/s² (距离地心: ${(currentRadius/1000).toFixed(1)}km)`);
+            console.log(`  垂直速度: ${this.velocity.toFixed(1)}m/s, 水平速度: ${this.horizontalVelocity.toFixed(1)}m/s`);
+            console.log(`  总速度: ${totalVelocity.toFixed(1)}m/s, 高度: ${(this.altitude/1000).toFixed(1)}km`);
+            
+            if (this.inOrbit) {
+                console.log(`  🛰️ 已入轨！轨道速度: ${totalVelocity.toFixed(1)}m/s`);
+            }
         }
         
         // 更新速度和位置
@@ -309,16 +327,23 @@ class LaunchSimulation {
         let totalThrust = 0;
         activeEngines.forEach(engine => {
             if (this.hasEnoughFuel(engine)) {
-                // 根据高度调整推力（简化的大气效应）
-                const atmosphericPressure = Math.exp(-this.altitude / 8000); // 简化大气模型
-                const thrustAtm = engine.data.thrust_atm || engine.data.thrust;
-                const thrustVac = engine.data.thrust || thrustAtm;
+                // 检查引擎排气是否被阻挡
+                const isBlocked = this.isEngineExhaustBlocked(engine);
                 
-                const currentThrust = thrustAtm + (thrustVac - thrustAtm) * (1 - atmosphericPressure);
-                // 应用节流阀设置
-                const throttledThrust = currentThrust * this.throttle;
-                totalThrust += throttledThrust;
-                console.log(`引擎 ${engine.data.name} (ID: ${engine.id}) 推力: ${throttledThrust.toFixed(1)} kN (${Math.round(this.throttle * 100)}%)`);
+                if (!isBlocked) {
+                    // 根据高度调整推力（简化的大气效应）
+                    const atmosphericPressure = Math.exp(-this.altitude / 8000); // 简化大气模型
+                    const thrustAtm = engine.data.thrust_atm || engine.data.thrust;
+                    const thrustVac = engine.data.thrust || thrustAtm;
+                    
+                    const currentThrust = thrustAtm + (thrustVac - thrustAtm) * (1 - atmosphericPressure);
+                    // 应用节流阀设置
+                    const throttledThrust = currentThrust * this.throttle;
+                    totalThrust += throttledThrust;
+                    console.log(`引擎 ${engine.data.name} (ID: ${engine.id}) 推力: ${throttledThrust.toFixed(1)} kN (${Math.round(this.throttle * 100)}%)`);
+                } else {
+                    console.log(`引擎 ${engine.data.name} (ID: ${engine.id}) 排气被阻挡，无推力输出`);
+                }
             }
         });
         
@@ -345,6 +370,112 @@ class LaunchSimulation {
         const dragForce = -Math.sign(velocity) * dragMagnitude;
         
         return dragForce;
+    }
+    
+    // 检查轨道状态
+    checkOrbitalStatus() {
+        // 计算当前总速度
+        const totalVelocity = Math.sqrt(this.velocity * this.velocity + this.horizontalVelocity * this.horizontalVelocity);
+        
+        // 入轨条件：
+        // 1. 高度大于最小轨道高度 (150km)
+        // 2. 总速度大于轨道速度阈值 (7.8km/s)
+        // 3. 水平速度分量足够大 (至少占总速度的70%)
+        const horizontalVelocityRatio = Math.abs(this.horizontalVelocity) / totalVelocity;
+        
+        const meetsAltitudeRequirement = this.altitude >= this.minOrbitalAltitude;
+        const meetsVelocityRequirement = totalVelocity >= this.orbitalVelocityThreshold;
+        const meetsHorizontalRequirement = horizontalVelocityRatio >= 0.7;
+        
+        const wasInOrbit = this.inOrbit;
+        this.inOrbit = meetsAltitudeRequirement && meetsVelocityRequirement && meetsHorizontalRequirement;
+        
+        // 如果刚刚入轨，显示通知
+        if (this.inOrbit && !wasInOrbit && !this.orbitalNotificationShown) {
+            this.orbitalNotificationShown = true;
+            this.showOrbitalAchievement(totalVelocity);
+            console.log(`🎉 入轨成功！高度: ${(this.altitude/1000).toFixed(1)}km, 速度: ${totalVelocity.toFixed(1)}m/s`);
+        }
+        
+        // 如果失去轨道（比如再入大气层），重置通知标志
+        if (!this.inOrbit && wasInOrbit) {
+            this.orbitalNotificationShown = false;
+            console.log(`失去轨道状态`);
+        }
+    }
+    
+    // 显示入轨成就通知
+    showOrbitalAchievement(velocity) {
+        // 创建成就通知元素
+        const achievement = document.createElement('div');
+        achievement.className = 'orbital-achievement';
+        achievement.innerHTML = `
+            <div class="achievement-icon">🛰️</div>
+            <div class="achievement-content">
+                <h3>入轨成功！</h3>
+                <p>高度: ${(this.altitude/1000).toFixed(1)} km</p>
+                <p>轨道速度: ${velocity.toFixed(0)} m/s</p>
+                <small>恭喜！您的火箭已成功进入轨道</small>
+            </div>
+        `;
+        
+        // 添加样式
+        achievement.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            z-index: 10000;
+            min-width: 300px;
+            animation: orbitalAchievement 4s ease-in-out;
+        `;
+        
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes orbitalAchievement {
+                0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+                20% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+                80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
+            }
+            .orbital-achievement .achievement-icon {
+                font-size: 3em;
+                margin-bottom: 10px;
+            }
+            .orbital-achievement h3 {
+                margin: 10px 0;
+                color: #FFD700;
+                font-size: 1.5em;
+            }
+            .orbital-achievement p {
+                margin: 5px 0;
+                font-size: 1.1em;
+            }
+            .orbital-achievement small {
+                opacity: 0.8;
+                font-size: 0.9em;
+            }
+        `;
+        
+        document.head.appendChild(style);
+        document.body.appendChild(achievement);
+        
+        // 4秒后移除通知
+        setTimeout(() => {
+            if (achievement.parentNode) {
+                achievement.parentNode.removeChild(achievement);
+            }
+            if (style.parentNode) {
+                style.parentNode.removeChild(style);
+            }
+        }, 4000);
     }
 
     // 更新质量（燃料消耗）
@@ -687,8 +818,12 @@ class LaunchSimulation {
         }
     }
 
-    // 更新火箭视觉位置
+    // 更新火箭视觉位置（已被世界坐标系统取代）
     updateRocketPosition() {
+        // 注释掉旧的火箭定位系统，现在由launch-pad.js中的世界坐标系统负责
+        // 旧系统会与新的相机系统冲突，导致火箭位置异常
+        
+        /*
         const rocketDisplay = document.getElementById('rocketDisplay');
         if (rocketDisplay) {
             // 根据高度调整火箭垂直位置（视觉效果）
@@ -711,6 +846,7 @@ class LaunchSimulation {
             rocketDisplay.style.left = `${newLeft}%`;
             rocketDisplay.style.transform = `translateX(-50%) scale(${Math.max(0.3, 1 - visualHeight / 1000)}) rotate(${this.steeringAngle}deg)`;
         }
+        */
     }
 
     // 更新视觉效果
@@ -733,15 +869,17 @@ class LaunchSimulation {
         activeEngines.forEach(engine => {
             const flameElement = document.getElementById(`flame-${engine.id}`);
             if (flameElement) {
-                // 检查引擎是否应该显示火焰：
+                // 检查引擎是否应该显示火焰和计算推力：
                 // 1. 必须有足够的燃料
                 // 2. 节流阀必须大于0%
+                // 3. 引擎后面（底部）不能有组件阻挡
                 const hasEnoughFuel = this.hasEnoughFuel(engine);
                 const hasThrottle = this.throttle > 0;
+                const hasBlockedExhaust = this.isEngineExhaustBlocked(engine);
                 
-                console.log(`引擎 ${engine.data.name} (ID: ${engine.id}): 燃料=${hasEnoughFuel}, 节流阀=${hasThrottle}, 火焰显示=${hasEnoughFuel && hasThrottle}`);
+                console.log(`引擎 ${engine.data.name} (ID: ${engine.id}): 燃料=${hasEnoughFuel}, 节流阀=${hasThrottle}, 排气阻挡=${hasBlockedExhaust}, 火焰显示=${hasEnoughFuel && hasThrottle && !hasBlockedExhaust}`);
                 
-                if (hasEnoughFuel && hasThrottle) {
+                if (hasEnoughFuel && hasThrottle && !hasBlockedExhaust) {
                     flameElement.classList.add('active');
                     // 根据推力和节流阀调整火焰大小
                     const baseThrust = engine.data.thrust || 0;
@@ -752,6 +890,33 @@ class LaunchSimulation {
                 }
             }
         });
+    }
+    
+    // 检查引擎排气是否被阻挡
+    isEngineExhaustBlocked(engine) {
+        if (!engine || engine.data.type !== 'engine') return false;
+        
+        // 找到引擎底部连接点连接的组件
+        const engineBottomConnections = this.assembly.connections.filter(conn => 
+            (conn.partA === engine.id && conn.attachPointA === 'bottom') ||
+            (conn.partB === engine.id && conn.attachPointB === 'bottom')
+        );
+        
+        // 如果引擎底部有连接的组件，且该组件未分离，则排气被阻挡
+        for (const connection of engineBottomConnections) {
+            const connectedPartId = connection.partA === engine.id ? connection.partB : connection.partA;
+            
+            // 检查连接的组件是否还存在且未分离
+            if (!this.separatedPartIds.has(connectedPartId)) {
+                const connectedPart = this.assembly.parts.find(p => p.id === connectedPartId);
+                if (connectedPart) {
+                    console.log(`引擎 ${engine.data.name} 的排气被组件 ${connectedPart.data.name} 阻挡`);
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 
     // 更新分级UI
@@ -1047,10 +1212,9 @@ class LaunchSimulation {
         return this.throttle;
     }
     
-    // 设置转向角度
+    // 设置转向角度（无限制）
     setSteering(angle) {
-        this.steeringAngle = Math.max(-this.maxSteeringAngle, 
-                                     Math.min(this.maxSteeringAngle, angle));
+        this.steeringAngle = angle; // 移除角度限制
         console.log(`转向角度设置为: ${this.steeringAngle.toFixed(1)}°`);
         
         // 更新导航条显示
@@ -1072,7 +1236,7 @@ class LaunchSimulation {
         this.setSteering(0);
     }
     
-    // 更新转向显示
+    // 更新转向显示（无角度限制）
     updateSteeringDisplay() {
         const steeringAngleElement = document.getElementById('steeringAngle');
         const navPointer = document.getElementById('navPointer');
@@ -1082,14 +1246,16 @@ class LaunchSimulation {
         }
         
         if (navPointer) {
-            // 计算导航指针位置，140px宽的导航条，最大角度45°
+            // 计算导航指针位置，以90°为导航条的满刻度范围
+            const maxDisplayAngle = 90; // 导航条显示范围为±90°
             const maxOffset = 70; // 导航条半宽
-            const offset = (this.steeringAngle / this.maxSteeringAngle) * maxOffset;
+            const clampedAngle = Math.max(-maxDisplayAngle, Math.min(maxDisplayAngle, this.steeringAngle));
+            const offset = (clampedAngle / maxDisplayAngle) * maxOffset;
             navPointer.style.left = `calc(50% + ${offset}px)`;
             
-            // 根据转向角度改变指针颜色
-            if (Math.abs(this.steeringAngle) > 30) {
-                navPointer.style.background = '#FF6B6B'; // 大角度时显示红色警告
+            // 根据转向角度改变指针颜色（仅用于视觉提示，不限制功能）
+            if (Math.abs(this.steeringAngle) > 90) {
+                navPointer.style.background = '#FF6B6B'; // 大角度时显示红色提示
                 navPointer.style.borderColor = '#FF4444';
             } else if (Math.abs(this.steeringAngle) > 15) {
                 navPointer.style.background = '#FFE66D'; // 中等角度时显示黄色

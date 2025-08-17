@@ -13,13 +13,11 @@
     <div id="languageSwitcher" class="language-switcher bottom-left"></div>
     
     <div class="launch-container">
-        <!-- 背景层 -->
-        <div class="background-layer">
-            <div class="sky-gradient"></div>
-            <div class="ground-layer"></div>
-            <div class="launch-tower"></div>
+        <!-- 世界背景容器（独立于火箭变换） -->
+        <div class="world-background" id="worldBackground">
+            <!-- 世界坐标系统的背景元素将在这里渲染 -->
         </div>
-
+        
         <!-- 火箭显示区域 -->
         <div class="rocket-display" id="rocketDisplay">
             <!-- 火箭将在这里渲染 -->
@@ -86,6 +84,23 @@
             <div class="data-item">
                 <span class="data-label" data-i18n="launchPad.flightData.deltaV">剩余Delta-V</span>
                 <span class="data-value" id="deltaV">0 m/s</span>
+            </div>
+            
+            <!-- 轨道数据 -->
+            <div class="data-separator"></div>
+            <div class="orbital-section">
+                <div class="data-item">
+                    <span class="data-label">总速度</span>
+                    <span class="data-value" id="totalVelocity">0 m/s</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">轨道状态</span>
+                    <span class="data-value orbital-status" id="orbitalStatus">亚轨道</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">距地心距离</span>
+                    <span class="data-value" id="distanceFromCenter">6371 km</span>
+                </div>
             </div>
             
             <!-- 操作说明 -->

@@ -5,10 +5,24 @@
     height: 100vh;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 60%, #228B22 100%);
+    background: #000011; /* 深空背景，让动态世界坐标系统负责背景 */
 }
 
-/* 背景层 */
+/* 世界背景容器（独立于火箭变换） */
+.world-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* ===========================
+   原有静态背景样式（已禁用）
+   =========================== */
+/*
 .background-layer {
     position: absolute;
     top: 0;
@@ -42,6 +56,7 @@
         #32CD32 50%,
         #228B22 100%);
 }
+*/
 
 .launch-tower {
     position: absolute;
@@ -135,10 +150,7 @@
 
 /* 火焰效果 */
 .engine-flame {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    /* 定位由JavaScript控制 */
     width: 60%;
     height: 0;
     background: radial-gradient(ellipse at center,
@@ -150,6 +162,7 @@
     opacity: 0;
     transition: all 0.1s ease;
     filter: blur(2px);
+    pointer-events: none; /* 火焰不响应鼠标事件 */
 }
 
 .engine-flame.active {
@@ -1975,6 +1988,19 @@
 .rocket-container {
     z-index: 10 !important;
     transition: all 0.1s linear;
+}
+
+/* 轨道数据部分样式 */
+.orbital-section {
+    background: rgba(30, 60, 114, 0.3);
+    border-radius: 8px;
+    padding: 8px;
+    margin: 5px 0;
+}
+
+.orbital-status {
+    font-weight: bold;
+    text-shadow: 0 0 5px currentColor;
 }
 
 /* 隐藏原有的静态发射台元素 */
