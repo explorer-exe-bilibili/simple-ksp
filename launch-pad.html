@@ -90,16 +90,44 @@
             <div class="data-separator"></div>
             <div class="orbital-section">
                 <div class="data-item">
-                    <span class="data-label">总速度</span>
+                    <span class="data-label" data-i18n="launchPad.flightData.totalVelocity">总速度</span>
                     <span class="data-value" id="totalVelocity">0 m/s</span>
                 </div>
                 <div class="data-item">
-                    <span class="data-label">轨道状态</span>
-                    <span class="data-value orbital-status" id="orbitalStatus">亚轨道</span>
+                    <span class="data-label" data-i18n="launchPad.flightData.orbitalStatus">轨道状态</span>
+                    <span class="data-value orbital-status" id="orbitalStatus" data-i18n="launchPad.flightData.suborbital">亚轨道</span>
                 </div>
                 <div class="data-item">
-                    <span class="data-label">距地心距离</span>
+                    <span class="data-label" data-i18n="launchPad.flightData.distanceFromCenter">距地心距离</span>
                     <span class="data-value" id="distanceFromCenter">6371 km</span>
+                </div>
+                
+                <!-- 详细轨道参数 -->
+                <div class="orbital-details" id="orbitalDetails" style="display: none;">
+                    <div class="data-item">
+                        <span class="data-label" data-i18n="launchPad.orbital.apoapsis">远地点</span>
+                        <span class="data-value" id="apoapsis">- km</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label" data-i18n="launchPad.orbital.periapsis">近地点</span>
+                        <span class="data-value" id="periapsis">- km</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label" data-i18n="launchPad.orbital.eccentricity">偏心率</span>
+                        <span class="data-value" id="eccentricity">-</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label" data-i18n="launchPad.orbital.period">轨道周期</span>
+                        <span class="data-value" id="orbitalPeriod">-</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label" data-i18n="launchPad.orbital.circularVelocity">圆轨道速度</span>
+                        <span class="data-value" id="circularVelocity">- m/s</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label" data-i18n="launchPad.orbital.escapeVelocity">逃逸速度</span>
+                        <span class="data-value" id="escapeVelocity">- m/s</span>
+                    </div>
                 </div>
             </div>
             

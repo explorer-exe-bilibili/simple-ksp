@@ -730,10 +730,11 @@ class LaunchPad {
         // 计算距地心距离
         const distanceFromCenter = (this.simulation.earthRadius + this.simulation.altitude) / 1000; // 转换为km
         
-        // 更新显示
+        // 更新基本轨道显示
         const totalVelocityElement = document.getElementById('totalVelocity');
         const orbitalStatusElement = document.getElementById('orbitalStatus');
         const distanceFromCenterElement = document.getElementById('distanceFromCenter');
+        const orbitalDetailsElement = document.getElementById('orbitalDetails');
         
         if (totalVelocityElement) {
             totalVelocityElement.textContent = `${totalVelocity.toFixed(1)} m/s`;
@@ -741,16 +742,101 @@ class LaunchPad {
         
         if (orbitalStatusElement) {
             if (this.simulation.inOrbit) {
-                orbitalStatusElement.textContent = '🛰️ 在轨道';
+                const orbitalText = window.i18n ? window.i18n.t('launchPad.flightData.orbital') : '轨道';
+                orbitalStatusElement.textContent = `🛰️ ${orbitalText}`;
                 orbitalStatusElement.style.color = '#00ff00';
+                
+                // 显示详细轨道信息
+                if (orbitalDetailsElement) {
+                    orbitalDetailsElement.style.display = 'block';
+                    this.updateDetailedOrbitalData();
+                }
             } else {
-                orbitalStatusElement.textContent = '🚀 亚轨道';
+                const suborbitalText = window.i18n ? window.i18n.t('launchPad.flightData.suborbital') : '亚轨道';
+                orbitalStatusElement.textContent = `🚀 ${suborbitalText}`;
                 orbitalStatusElement.style.color = '#ffaa00';
+                
+                // 隐藏详细轨道信息
+                if (orbitalDetailsElement) {
+                    orbitalDetailsElement.style.display = 'none';
+                }
             }
         }
         
         if (distanceFromCenterElement) {
             distanceFromCenterElement.textContent = `${distanceFromCenter.toFixed(1)} km`;
+        }
+    }
+    
+    // 更新详细轨道数据
+    updateDetailedOrbitalData() {
+        if (!this.simulation || !this.simulation.orbitalElements) return;
+        
+        const elements = this.simulation.orbitalElements;
+        
+        // 更新远地点
+        const apoapsisElement = document.getElementById('apoapsis');
+        if (apoapsisElement) {
+            if (elements.apoapsis === Infinity) {
+                apoapsisElement.textContent = '∞ (逃逸)';
+            } else {
+                apoapsisElement.textContent = `${(elements.apoapsis / 1000).toFixed(1)} km`;
+            }
+        }
+        
+        // 更新近地点
+        const periapsisElement = document.getElementById('periapsis');
+        if (periapsisElement) {
+            periapsisElement.textContent = `${(elements.periapsis / 1000).toFixed(1)} km`;
+        }
+        
+        // 更新偏心率
+        const eccentricityElement = document.getElementById('eccentricity');
+        if (eccentricityElement) {
+            eccentricityElement.textContent = elements.eccentricity.toFixed(3);
+            
+            // 根据偏心率设置颜色
+            if (elements.eccentricity < 0.1) {
+                eccentricityElement.style.color = '#00ff00'; // 接近圆形轨道
+            } else if (elements.eccentricity < 0.5) {
+                eccentricityElement.style.color = '#ffaa00'; // 椭圆轨道
+            } else if (elements.eccentricity < 1.0) {
+                eccentricityElement.style.color = '#ff6600'; // 高偏心率椭圆
+            } else {
+                eccentricityElement.style.color = '#ff0000'; // 双曲线轨道
+            }
+        }
+        
+        // 更新轨道周期
+        const orbitalPeriodElement = document.getElementById('orbitalPeriod');
+        if (orbitalPeriodElement) {
+            if (elements.orbitalPeriod === Infinity) {
+                orbitalPeriodElement.textContent = '∞ (逃逸)';
+            } else {
+                const periodMinutes = elements.orbitalPeriod / 60;
+                const periodHours = periodMinutes / 60;
+                const periodDays = periodHours / 24;
+                
+                if (periodDays >= 1) {
+                    orbitalPeriodElement.textContent = `${periodDays.toFixed(1)}d`;
+                } else if (periodHours >= 1) {
+                    orbitalPeriodElement.textContent = `${periodHours.toFixed(1)}h`;
+                } else {
+                    orbitalPeriodElement.textContent = `${periodMinutes.toFixed(1)}min`;
+                }
+            }
+        }
+        
+        // 更新圆轨道速度
+        const circularVelocityElement = document.getElementById('circularVelocity');
+        if (circularVelocityElement) {
+            circularVelocityElement.textContent = `${elements.circularVelocity.toFixed(0)} m/s`;
+        }
+        
+        // 更新逃逸速度
+        const escapeVelocityElement = document.getElementById('escapeVelocity');
+        if (escapeVelocityElement) {
+            escapeVelocityElement.textContent = `${elements.escapeVelocity.toFixed(0)} m/s`;
         }
     }
     

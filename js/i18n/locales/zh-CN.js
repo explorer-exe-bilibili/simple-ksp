@@ -191,7 +191,12 @@ export default {
             oxidizer: '氧化剂',
             throttle: '推力',
             deltaV: '剩余Delta-V',
-            stage: '级数'
+            stage: '级数',
+            totalVelocity: '总速度',
+            orbitalStatus: '轨道状态',
+            distanceFromCenter: '距离地心',
+            suborbital: '亚轨道',
+            orbital: '轨道'
         },
         controlsHint: {
             title: '操作说明',
@@ -247,6 +252,20 @@ export default {
             crashed: '坠毁',
             orbit: '轨道中',
             takeoff: '重新起飞'
+        },
+        orbital: {
+            achievement: {
+                title: '🎉 入轨成功！',
+                altitude: '轨道高度',
+                velocity: '轨道速度',
+                message: '恭喜！您已成功将火箭送入轨道！'
+            },
+            apoapsis: '远地点',
+            periapsis: '近地点',
+            eccentricity: '偏心率',
+            period: '轨道周期',
+            circularVelocity: '圆轨道速度',
+            escapeVelocity: '逃逸速度'
         },
         units: {
             meters: 'm',

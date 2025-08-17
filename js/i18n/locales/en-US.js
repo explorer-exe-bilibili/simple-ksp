@@ -195,7 +195,12 @@ export default {
             oxidizer: 'Oxidizer',
             throttle: 'Throttle',
             deltaV: 'Remaining Delta-V',
-            stage: 'Stage'
+            stage: 'Stage',
+            totalVelocity: 'Total Velocity',
+            orbitalStatus: 'Orbital Status',
+            distanceFromCenter: 'Distance from Center',
+            suborbital: 'Suborbital',
+            orbital: 'Orbital'
         },
         controlsHint: {
             title: 'Controls',
@@ -251,6 +256,20 @@ export default {
             crashed: 'Crashed',
             orbit: 'In Orbit',
             takeoff: 'Taking Off'
+        },
+        orbital: {
+            achievement: {
+                title: '🎉 Orbit Achieved!',
+                altitude: 'Orbital Altitude',
+                velocity: 'Orbital Velocity',
+                message: 'Congratulations! You have successfully achieved orbit!'
+            },
+            apoapsis: 'Apoapsis',
+            periapsis: 'Periapsis',
+            eccentricity: 'Eccentricity',
+            period: 'Orbital Period',
+            circularVelocity: 'Circular Velocity',
+            escapeVelocity: 'Escape Velocity'
         },
         units: {
             meters: 'm',
