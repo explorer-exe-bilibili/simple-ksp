@@ -1,0 +1,60 @@
+<!-- 液体燃料引擎 SVG -->
+<svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="engineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5f5f5"/>
+      <stop offset="50%" style="stop-color:#d4d4d4"/>
+      <stop offset="100%" style="stop-color:#a0a0a0"/>
+    </linearGradient>
+    <radialGradient id="nozzleGradient" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" style="stop-color:#8b4513"/>
+      <stop offset="70%" style="stop-color:#654321"/>
+      <stop offset="100%" style="stop-color:#3d2914"/>
+    </radialGradient>
+    <radialGradient id="flameGradient" cx="50%" cy="0%" r="80%">
+      <stop offset="0%" style="stop-color:#ffff88"/>
+      <stop offset="30%" style="stop-color:#ff8844"/>
+      <stop offset="70%" style="stop-color:#ff4444"/>
+      <stop offset="100%" style="stop-color:#cc2222"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- 顶部连接环 -->
+  <rect x="30" y="5" width="40" height="8" rx="4" fill="#666" stroke="#444" stroke-width="1"/>
+  
+  <!-- 主引擎体 -->
+  <rect x="25" y="15" width="50" height="60" rx="5" fill="url(#engineGradient)" stroke="#777" stroke-width="2"/>
+  
+  <!-- 引擎细节 -->
+  <rect x="30" y="25" width="40" height="8" rx="2" fill="#555"/>
+  <rect x="35" y="40" width="30" height="6" rx="1" fill="#666"/>
+  <rect x="32" y="50" width="36" height="4" rx="1" fill="#777"/>
+  
+  <!-- 推力向量控制环 -->
+  <ellipse cx="50" cy="65" rx="22" ry="8" fill="#888" stroke="#555" stroke-width="1"/>
+  
+  <!-- 引擎喷嘴 -->
+  <path d="M35 75 L40 95 L60 95 L65 75 Z" fill="url(#nozzleGradient)" stroke="#3d2914" stroke-width="2"/>
+  
+  <!-- 底部连接环 -->
+  <rect x="30" y="95" width="40" height="8" rx="4" fill="#666" stroke="#444" stroke-width="1"/>
+  <rect x="35" y="97" width="30" height="4" rx="2" fill="#999"/>
+  
+  <!-- 内部喷嘴 -->
+  <path d="M42 80 L45 90 L55 90 L58 80 Z" fill="#2a1a0d"/>
+  
+  <!-- 引擎火焰效果 (可选显示) -->
+  <g class="flame-effect" style="opacity: 0;">
+    <ellipse cx="50" cy="115" rx="12" ry="20" fill="url(#flameGradient)"/>
+    <ellipse cx="50" cy="125" rx="8" ry="15" fill="#ffaa44" opacity="0.8"/>
+    <ellipse cx="50" cy="130" rx="5" ry="10" fill="#ffff88" opacity="0.6"/>
+  </g>
+  
+  <!-- 管道连接 -->
+  <circle cx="35" cy="30" r="3" fill="#444" stroke="#222" stroke-width="1"/>
+  <circle cx="65" cy="30" r="3" fill="#444" stroke="#222" stroke-width="1"/>
+  
+  <!-- 标识牌 -->
+  <rect x="20" y="55" width="8" height="12" rx="1" fill="#ff6b35" stroke="#cc4422" stroke-width="1"/>
+  <rect x="72" y="55" width="8" height="12" rx="1" fill="#ff6b35" stroke="#cc4422" stroke-width="1"/>
+</svg>

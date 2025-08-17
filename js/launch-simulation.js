@@ -23,37 +23,24 @@ class LaunchSimulation {
         this.dragCoefficient = 0.3; // 阻力系数（火箭形状优化）
         this.crossSectionArea = 1.0; // 横截面积（平方米）
         
-        // 地球参数（用于轨道力学计算）
-        this.earthRadius = 6371000; // 地球半径（米）
-        this.earthMass = 5.972e24;  // 地球质量（千克）
-        this.gravitationalConstant = 6.674e-11; // 万有引力常数
-        this.orbitalVelocityThreshold = 7200; // 轨道速度阈值（m/s）- 降低到更现实的值
-        this.minOrbitalAltitude = 80000; // 最小轨道高度（80km）- 降低门槛
+        // 地球参数（球体模型）
+        this.earthRadius = 6371000; // 地球半径 (米)
+        this.earthMass = 5.972e24;  // 地球质量 (kg)
+        this.gravitationalConstant = 6.674e-11; // 万有引力常数 (m³/kg/s²)
         
-        // 轨道状态
-        this.inOrbit = false;           // 是否已入轨
-        this.orbitalNotificationShown = false; // 入轨通知是否已显示
-        
-        // 轨道力学参数
-        this.orbitalElements = {
-            semiMajorAxis: 0,      // 半长轴 (m)
-            eccentricity: 0,       // 偏心率
-            apoapsis: 0,           // 远地点高度 (m)
-            periapsis: 0,          // 近地点高度 (m)
-            orbitalPeriod: 0,      // 轨道周期 (s)
-            orbitalVelocity: 0,    // 当前轨道速度 (m/s)
-            circularVelocity: 0,   // 圆轨道速度 (m/s)
-            escapeVelocity: 0,     // 逃逸速度 (m/s)
-            timeToApoapsis: 0,     // 到达远地点时间 (s)
-            timeToPeriapsis: 0     // 到达近地点时间 (s)
-        };
+        // 球坐标系统（相对于地心）
+        this.radialDistance = this.earthRadius; // 距离地心的距离（初始为地球半径）
+        this.angularPosition = 0;    // 角位置（弧度，0为发射台正上方）
+        this.radialVelocity = 0;     // 径向速度（远离地心为正）
+        this.angularVelocity = 0;    // 角速度（弧度/秒）
         
         // 时间步长
         this.deltaTime = 0.1;       // 100ms per step
+        this.baseDeltaTime = 0.1;   // 基础时间步长
+        this.timeAcceleration = 1;  // 时间加速倍率
         this.simulationTimer = null;
         this.lastDebugTime = 0;     // 调试输出时间控制
         this.lastFuelDebugTime = 0; // 燃料调试输出时间控制
-        this.lastOrbitalDebugTime = 0; // 轨道参数调试输出时间控制
         
         // 节流阀控制
         this.throttle = 1.0;        // 节流阀设置 (0.0-1.0)
@@ -66,6 +53,10 @@ class LaunchSimulation {
         this.currentStage = 0;
         this.stages = [];
         this.separatedPartIds = new Set(); // 跟踪已分离的部件ID
+        
+        // 轨道状态
+        this.hasReachedOrbit = false;
+        this.orbitalData = null;
         
         this.initializeStages();
     }
@@ -185,20 +176,25 @@ class LaunchSimulation {
         this.acceleration = 0;
         this.horizontalAcceleration = 0;
         this.steeringAngle = 0;
-        this.inOrbit = false;
-        this.orbitalNotificationShown = false;
         this.crashed = false;
         this.landed = false;
         this.landingNotificationShown = false; // 重置着陆通知标志
         
-        // 启动模拟循环
+        // 启动模拟循环 - 使用固定的更新频率
         this.simulationTimer = setInterval(() => {
             if (!this.isPaused) {
-                this.updatePhysics();
+                // 高倍率时间加速时进行多次物理更新
+                const numSteps = Math.max(1, this.timeAcceleration);
+                for (let i = 0; i < numSteps; i++) {
+                    this.updatePhysics();
+                    this.checkStaging();
+                    
+                    // 如果火箭坠毁或其他关键状态改变，停止多步更新
+                    if (this.crashed || !this.isRunning) break;
+                }
                 this.updateDisplay();
-                this.checkStaging();
             }
-        }, this.deltaTime * 1000);
+        }, this.baseDeltaTime * 1000); // 保持100ms的固定更新间隔
         
         console.log('发射模拟开始');
     }
@@ -222,64 +218,85 @@ class LaunchSimulation {
         console.log(this.isPaused ? '模拟暂停' : '模拟继续');
     }
 
-    // 更新物理状态
+    // 更新物理状态（球形地球模型）
     updatePhysics() {
+        // 更新球坐标系统
+        this.updateSphericalCoordinates();
+        
         // 计算当前推力（总推力）
         const totalThrust = this.calculateThrust();
         
-        // 将推力分解为水平和垂直分量
-        // 转向角度：0°为垂直向上，正角度向右，负角度向左
+        // 将推力分解为径向和切向分量（球坐标系）
         const steeringRadians = this.steeringAngle * Math.PI / 180;
-        const verticalThrust = totalThrust * Math.cos(steeringRadians);   // 垂直分量
-        const horizontalThrust = totalThrust * Math.sin(steeringRadians); // 水平分量
+        const radialThrust = totalThrust * Math.cos(steeringRadians);     // 径向分量（远离地心）
+        const tangentialThrust = totalThrust * Math.sin(steeringRadians); // 切向分量
         
-        // 计算空气阻力（垂直和水平分别计算）
-        const verticalDrag = this.calculateDrag(this.velocity);
-        const horizontalDrag = this.calculateDrag(this.horizontalVelocity);
+        // 计算空气阻力（径向和切向分别计算）
+        const radialDrag = this.calculateDrag(this.radialVelocity);
+        const tangentialDrag = this.calculateDrag(this.radialVelocity * this.angularVelocity); // 切向速度
         
-        // 计算向心重力（指向地心，随高度衰减）
-        const currentRadius = this.earthRadius + this.altitude;
-        const gravitationalAcceleration = (this.gravitationalConstant * this.earthMass) / (currentRadius * currentRadius);
-        const gravityForce = -(this.mass * 1000 * gravitationalAcceleration);
+        // 计算球形地球的重力（随高度变化）
+        const currentGravity = this.calculateGravityAtAltitude(this.altitude);
+        const gravityForce = -(this.mass * 1000 * currentGravity); // 重力总是指向地心（径向负方向）
         
-        // 计算净力
-        const netVerticalForce = verticalThrust + gravityForce + verticalDrag;
-        const netHorizontalForce = horizontalThrust + horizontalDrag;
+        // 计算离心力（在径向方向，远离地心）
+        const centrifugalForce = this.mass * 1000 * this.angularVelocity * this.angularVelocity * this.radialDistance;
+        
+        // 计算净力（球坐标系）
+        const netRadialForce = radialThrust + gravityForce + centrifugalForce + radialDrag;
+        const netTangentialForce = tangentialThrust + tangentialDrag;
         
         // 计算加速度 (m/s²)
-        this.acceleration = netVerticalForce / (this.mass * 1000);
-        this.horizontalAcceleration = netHorizontalForce / (this.mass * 1000);
+        const radialAcceleration = netRadialForce / (this.mass * 1000);
+        const tangentialAcceleration = netTangentialForce / (this.mass * 1000);
         
-        // 检查轨道状态
-        this.checkOrbitalStatus();
+        // 角加速度（考虑径向距离变化对角动量的影响）
+        const angularAcceleration = (tangentialAcceleration / this.radialDistance) - 
+                                   (2 * this.radialVelocity * this.angularVelocity / this.radialDistance);
+        
+        // 更新加速度字段供显示使用
+        this.acceleration = radialAcceleration; // 径向加速度作为主要加速度显示
+        this.horizontalAcceleration = tangentialAcceleration; // 切向加速度作为水平加速度
         
         // 调试输出（每秒输出一次）
         if (Math.floor(Date.now() / 1000) !== this.lastDebugTime) {
             this.lastDebugTime = Math.floor(Date.now() / 1000);
-            const totalVelocity = Math.sqrt(this.velocity * this.velocity + this.horizontalVelocity * this.horizontalVelocity);
-            console.log(`物理状态:`);
+            console.log(`球形地球物理状态:`);
             console.log(`  转向角度: ${this.steeringAngle.toFixed(1)}°`);
-            console.log(`  总推力: ${(totalThrust/1000).toFixed(1)}kN`);
-            console.log(`  重力加速度: ${gravitationalAcceleration.toFixed(3)}m/s² (距离地心: ${(currentRadius/1000).toFixed(1)}km)`);
-            console.log(`  垂直速度: ${this.velocity.toFixed(1)}m/s, 水平速度: ${this.horizontalVelocity.toFixed(1)}m/s`);
-            console.log(`  总速度: ${totalVelocity.toFixed(1)}m/s, 高度: ${(this.altitude/1000).toFixed(1)}km`);
-            
-            if (this.inOrbit) {
-                console.log(`  🛰️ 已入轨！轨道速度: ${totalVelocity.toFixed(1)}m/s`);
-            }
+            console.log(`  径向距离: ${(this.radialDistance/1000).toFixed(1)}km`);
+            console.log(`  高度: ${(this.altitude/1000).toFixed(1)}km`);
+            console.log(`  当前重力: ${currentGravity.toFixed(2)}m/s²`);
+            console.log(`  径向加速度: ${radialAcceleration.toFixed(2)}m/s²`);
+            console.log(`  切向加速度: ${tangentialAcceleration.toFixed(2)}m/s²`);
+            console.log(`  径向速度: ${this.radialVelocity.toFixed(1)}m/s`);
+            console.log(`  角速度: ${(this.angularVelocity * 180/Math.PI).toFixed(3)}°/s`);
+            console.log(`  轨道速度: ${(this.radialDistance * this.angularVelocity / 1000).toFixed(1)}km/s`);
+            console.log(`  离心力: ${(centrifugalForce/1000).toFixed(1)}kN`);
         }
         
-        // 更新速度和位置
-        this.velocity += this.acceleration * this.deltaTime;
-        this.horizontalVelocity += this.horizontalAcceleration * this.deltaTime;
-        this.altitude += this.velocity * this.deltaTime;
-        this.horizontalPosition += this.horizontalVelocity * this.deltaTime;
+        // 更新速度（球坐标系） - 使用基础时间步长
+        this.radialVelocity += radialAcceleration * this.baseDeltaTime;
+        this.angularVelocity += angularAcceleration * this.baseDeltaTime;
+        
+        // 更新位置（球坐标系） - 使用基础时间步长
+        this.radialDistance += this.radialVelocity * this.baseDeltaTime;
+        this.angularPosition += this.angularVelocity * this.baseDeltaTime;
+        
+        // 转换回直角坐标系用于显示
+        this.altitude = this.radialDistance - this.earthRadius;
+        this.horizontalPosition = this.angularPosition * this.earthRadius; // 近似处理
+        this.velocity = this.radialVelocity;
+        this.horizontalVelocity = this.radialDistance * this.angularVelocity;
         
         // 地面检查
         if (this.altitude < 0) {
             this.altitude = 0;
+            this.radialDistance = this.earthRadius;
             this.handleLanding();
         }
+        
+        // 检查轨道状态
+        this.checkOrbitalStatus();
         
         // 重新起飞检查：如果火箭已着陆但有向上的推力或高度大于0，可以重新起飞
         if (this.landed) {
@@ -365,6 +382,32 @@ class LaunchSimulation {
         console.log(`总推力: ${totalThrust.toFixed(1)} kN`);
         return totalThrust * 1000; // 转换为牛顿
     }
+    
+    // 计算球形地球的重力加速度
+    calculateGravityAtAltitude(altitude) {
+        // 使用万有引力定律：g = GM/r²
+        const r = this.earthRadius + altitude;
+        return (this.gravitationalConstant * this.earthMass) / (r * r);
+    }
+    
+    // 更新球坐标系统
+    updateSphericalCoordinates() {
+        // 将直角坐标转换为球坐标
+        // altitude 对应径向距离的变化
+        this.radialDistance = this.earthRadius + this.altitude;
+        
+        // horizontalPosition 对应角位置的变化
+        // 弧长 = 半径 × 角度，所以角度 = 弧长 / 半径
+        this.angularPosition = this.horizontalPosition / this.earthRadius;
+        
+        // 更新球坐标速度
+        this.radialVelocity = this.velocity; // 径向速度就是垂直速度
+        this.angularVelocity = this.horizontalVelocity / this.radialDistance; // 角速度 = 切向速度 / 半径
+        
+        // 反向更新：从球坐标计算实际的直角坐标位置
+        this.altitude = this.radialDistance - this.earthRadius;
+        this.horizontalPosition = this.angularPosition * this.earthRadius; // 简化：假设小角度
+    }
 
     // 计算空气阻力
     calculateDrag(velocity = this.velocity) {
@@ -386,316 +429,6 @@ class LaunchSimulation {
         
         return dragForce;
     }
-    
-    // 检查轨道状态
-    checkOrbitalStatus() {
-        // 计算轨道力学参数
-        this.calculateOrbitalMechanics();
-        
-        // 计算当前总速度
-        const totalVelocity = Math.sqrt(this.velocity * this.velocity + this.horizontalVelocity * this.horizontalVelocity);
-        
-        // 修改后的入轨条件（更加宽松和现实）：
-        // 1. 高度大于最小轨道高度 (80km)
-        // 2. 总速度大于轨道速度阈值 (7.2km/s)
-        // 3. 水平速度分量足够大 (至少占总速度的60%)
-        // 4. 轨道偏心率小于1（椭圆轨道）
-        // 5. 近地点高度大于20km（降低要求，允许高偏心率轨道）
-        const horizontalVelocityRatio = Math.abs(this.horizontalVelocity) / totalVelocity;
-        
-        const meetsAltitudeRequirement = this.altitude >= this.minOrbitalAltitude;
-        const meetsVelocityRequirement = totalVelocity >= this.orbitalVelocityThreshold;
-        const meetsHorizontalRequirement = horizontalVelocityRatio >= 0.6; // 降低到60%
-        const meetsEccentricityRequirement = this.orbitalElements.eccentricity < 1.0 && 
-                                             this.orbitalElements.eccentricity >= 0;
-        const meetsPeriapsisRequirement = this.orbitalElements.periapsis > 0;
-        
-        const wasInOrbit = this.inOrbit;
-        this.inOrbit = meetsAltitudeRequirement && meetsVelocityRequirement && 
-                       meetsHorizontalRequirement && meetsEccentricityRequirement &&
-                       adjustedPeriapsisRequirement;
-        
-        // 调试输出入轨条件检查
-        if (Math.floor(Date.now() / 1000) !== this.lastDebugTime) {
-            console.log(`入轨条件检查:`);
-            console.log(`  高度: ${(this.altitude/1000).toFixed(1)}km >= ${(this.minOrbitalAltitude/1000)}km: ${meetsAltitudeRequirement}`);
-            console.log(`  速度: ${totalVelocity.toFixed(1)}m/s >= ${this.orbitalVelocityThreshold}m/s: ${meetsVelocityRequirement}`);
-            console.log(`  水平速度比: ${(horizontalVelocityRatio*100).toFixed(1)}% >= 60%: ${meetsHorizontalRequirement}`);
-            console.log(`  偏心率: ${this.orbitalElements.eccentricity.toFixed(3)} < 1.0: ${meetsEccentricityRequirement}`);
-            console.log(`  近地点: ${(this.orbitalElements.periapsis/1000).toFixed(1)}km > ${isStillClimbing ? '0' : '20'}km: ${adjustedPeriapsisRequirement}`);
-            console.log(`  垂直速度: ${this.velocity.toFixed(1)}m/s (${isStillClimbing ? '爬升中' : '稳定'})`);
-            console.log(`  入轨状态: ${this.inOrbit}`);
-        }
-        
-        // 如果刚刚入轨，显示通知
-        if (this.inOrbit && !wasInOrbit && !this.orbitalNotificationShown) {
-            this.orbitalNotificationShown = true;
-            this.showOrbitalAchievement(totalVelocity);
-            console.log(`🎉 入轨成功！高度: ${(this.altitude/1000).toFixed(1)}km, 速度: ${totalVelocity.toFixed(1)}m/s, 偏心率: ${this.orbitalElements.eccentricity.toFixed(3)}`);
-        }
-        
-        // 如果失去轨道（比如再入大气层），重置通知标志
-        if (!this.inOrbit && wasInOrbit) {
-            this.orbitalNotificationShown = false;
-            console.log(`失去轨道状态`);
-        }
-    }
-    
-    // 显示入轨成就通知
-    showOrbitalAchievement(velocity) {
-        // 创建成就通知元素
-        const achievement = document.createElement('div');
-        achievement.className = 'orbital-achievement';
-        
-        const titleText = window.i18n ? window.i18n.t('launchPad.orbital.achievement.title') : '🎉 入轨成功！';
-        const altitudeText = window.i18n ? window.i18n.t('launchPad.orbital.achievement.altitude') : '高度';
-        const velocityText = window.i18n ? window.i18n.t('launchPad.orbital.achievement.velocity') : '轨道速度';
-        const congratsText = window.i18n ? window.i18n.t('launchPad.orbital.achievement.message') : '恭喜！您的火箭已成功进入轨道！';
-        const apoapsisText = window.i18n ? window.i18n.t('launchPad.orbital.apoapsis') : '远地点';
-        const periapsisText = window.i18n ? window.i18n.t('launchPad.orbital.periapsis') : '近地点';
-        const eccentricityText = window.i18n ? window.i18n.t('launchPad.orbital.eccentricity') : '偏心率';
-        const periodText = window.i18n ? window.i18n.t('launchPad.orbital.period') : '轨道周期';
-        
-        // 格式化轨道周期
-        const periodMinutes = this.orbitalElements.orbitalPeriod / 60;
-        const periodHours = periodMinutes / 60;
-        let periodDisplay = '';
-        if (periodHours >= 1) {
-            periodDisplay = `${periodHours.toFixed(1)}h`;
-        } else {
-            periodDisplay = `${periodMinutes.toFixed(1)}min`;
-        }
-        
-        achievement.innerHTML = `
-            <div class="achievement-icon">🛰️</div>
-            <div class="achievement-content">
-                <h3>${titleText}</h3>
-                <div class="orbital-details">
-                    <p>${altitudeText}: ${(this.altitude/1000).toFixed(1)} km</p>
-                    <p>${velocityText}: ${velocity.toFixed(0)} m/s</p>
-                    <p>${apoapsisText}: ${(this.orbitalElements.apoapsis/1000).toFixed(1)} km</p>
-                    <p>${periapsisText}: ${(this.orbitalElements.periapsis/1000).toFixed(1)} km</p>
-                    <p>${eccentricityText}: ${this.orbitalElements.eccentricity.toFixed(3)}</p>
-                    <p>${periodText}: ${periodDisplay}</p>
-                </div>
-                <small>${congratsText}</small>
-            </div>
-        `;
-        
-        // 添加样式
-        achievement.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            text-align: center;
-            z-index: 10000;
-            min-width: 300px;
-            animation: orbitalAchievement 4s ease-in-out;
-        `;
-        
-        // 添加动画样式
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes orbitalAchievement {
-                0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-                20% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-                80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-                100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
-            }
-            .orbital-achievement .achievement-icon {
-                font-size: 3em;
-                margin-bottom: 10px;
-            }
-            .orbital-achievement h3 {
-                margin: 10px 0;
-                color: #FFD700;
-                font-size: 1.5em;
-            }
-            .orbital-achievement p {
-                margin: 5px 0;
-                font-size: 1.1em;
-            }
-            .orbital-achievement small {
-                opacity: 0.8;
-                font-size: 0.9em;
-            }
-        `;
-        
-        document.head.appendChild(style);
-        document.body.appendChild(achievement);
-        
-        // 4秒后移除通知
-        setTimeout(() => {
-            if (achievement.parentNode) {
-                achievement.parentNode.removeChild(achievement);
-            }
-            if (style.parentNode) {
-                style.parentNode.removeChild(style);
-            }
-        }, 4000);
-    }
-
-    // 计算轨道力学参数
-    calculateOrbitalMechanics() {
-        // 当前距离地心的距离
-        const currentRadius = this.earthRadius + this.altitude;
-        
-        // 当前总速度
-        const totalVelocity = Math.sqrt(this.velocity * this.velocity + this.horizontalVelocity * this.horizontalVelocity);
-        
-        // 当前轨道速度（总速度，用于轨道计算）
-        const orbitalVelocity = totalVelocity;
-        
-        // 计算当前位置的圆轨道速度
-        const circularVelocity = Math.sqrt(this.gravitationalConstant * this.earthMass / currentRadius);
-        
-        // 计算逃逸速度
-        const escapeVelocity = Math.sqrt(2 * this.gravitationalConstant * this.earthMass / currentRadius);
-        
-        // 计算比能量 (specific orbital energy)
-        const specificOrbitalEnergy = (totalVelocity * totalVelocity) / 2 - 
-                                     (this.gravitationalConstant * this.earthMass) / currentRadius;
-        
-        // 计算半长轴
-        let semiMajorAxis = 0;
-        let eccentricity = 0;
-        let apoapsis = 0;
-        let periapsis = 0;
-        let orbitalPeriod = 0;
-        
-        if (specificOrbitalEnergy < 0) {
-            // 椭圆轨道
-            semiMajorAxis = -(this.gravitationalConstant * this.earthMass) / (2 * specificOrbitalEnergy);
-            
-            // 计算角动量（使用水平速度分量）
-            const angularMomentum = currentRadius * Math.abs(this.horizontalVelocity);
-            
-            // 计算偏心率
-            const h2 = angularMomentum * angularMomentum;
-            const mu = this.gravitationalConstant * this.earthMass;
-            eccentricity = Math.sqrt(1 + (2 * specificOrbitalEnergy * h2) / (mu * mu));
-            
-            // 计算远地点和近地点
-            apoapsis = semiMajorAxis * (1 + eccentricity) - this.earthRadius;
-            periapsis = semiMajorAxis * (1 - eccentricity) - this.earthRadius;
-            
-            // 对于还在上升的情况，如果计算出近地点为负，进行特殊处理
-            if (periapsis < 0 && this.velocity > 0) {
-                // 火箭还在上升，轨道还没有完全建立
-                // 基于当前轨迹预测近地点
-                const currentSpeed = totalVelocity;
-                const minOrbitalSpeed = Math.sqrt(this.gravitationalConstant * this.earthMass / currentRadius);
-                
-                if (currentSpeed >= minOrbitalSpeed * 0.9) {
-                    // 速度接近轨道速度，预测一个合理的近地点
-                    const velocityRatio = currentSpeed / minOrbitalSpeed;
-                    periapsis = Math.max(0, this.altitude * (velocityRatio - 1) * 0.5);
-                } else {
-                    periapsis = 0; // 速度不足，会坠落
-                }
-            } else {
-                // 确保近地点不为负数
-                periapsis = Math.max(0, periapsis);
-            }
-            
-            // 计算轨道周期（开普勒第三定律）
-            orbitalPeriod = 2 * Math.PI * Math.sqrt((semiMajorAxis * semiMajorAxis * semiMajorAxis) / 
-                                                   (this.gravitationalConstant * this.earthMass));
-        } else {
-            // 双曲线轨道（逃逸轨道）
-            semiMajorAxis = -(this.gravitationalConstant * this.earthMass) / (2 * specificOrbitalEnergy);
-            
-            // 计算角动量
-            const angularMomentum = currentRadius * orbitalVelocity;
-            const h2 = angularMomentum * angularMomentum;
-            const mu = this.gravitationalConstant * this.earthMass;
-            
-            // 计算偏心率
-            eccentricity = Math.sqrt(1 + (2 * specificOrbitalEnergy * h2) / (mu * mu));
-            
-            apoapsis = Infinity;
-            
-            // 双曲线轨道的近地点计算：periapsis = |a| * (e - 1)
-            // 注意：对于双曲线轨道，a为负值，所以要用绝对值
-            const periapsisRadius = Math.abs(semiMajorAxis) * (eccentricity - 1);
-            periapsis = periapsisRadius - this.earthRadius;
-            
-            // 对于双曲线轨道，如果计算出的近地点高度为负，说明轨道与地面相交
-            // 这种情况下不强制设为0，而是显示真实值以便调试
-            
-            orbitalPeriod = Infinity;
-        }
-        
-        // 更新轨道参数
-        this.orbitalElements = {
-            semiMajorAxis: semiMajorAxis,
-            eccentricity: eccentricity,
-            apoapsis: apoapsis,
-            periapsis: periapsis,
-            orbitalPeriod: orbitalPeriod,
-            orbitalVelocity: orbitalVelocity,
-            circularVelocity: circularVelocity,
-            escapeVelocity: escapeVelocity,
-            timeToApoapsis: this.calculateTimeToApsis(true),
-            timeToPeriapsis: this.calculateTimeToApsis(false)
-        };
-        
-        // 详细的轨道参数调试输出（每2秒输出一次，避免刷屏）
-        const currentTime = Date.now();
-        if (currentTime - this.lastOrbitalDebugTime > 2000) {
-            this.lastOrbitalDebugTime = currentTime;
-            
-            const debugOutput = `
-=== 轨道力学详细参数 ===
-当前高度: ${(this.altitude/1000).toFixed(1)} km
-当前速度: V=${this.velocity.toFixed(1)} m/s, H=${this.horizontalVelocity.toFixed(1)} m/s, 总=${totalVelocity.toFixed(1)} m/s
-距地心距离: ${(currentRadius/1000).toFixed(1)} km
-比能量: ${(specificOrbitalEnergy/1000000).toFixed(2)} MJ/kg ${specificOrbitalEnergy > 0 ? '(逃逸)' : '(束缚)'}
-半长轴: ${(semiMajorAxis/1000).toFixed(1)} km ${semiMajorAxis < 0 ? '(双曲线)' : '(椭圆)'}
-偏心率: ${eccentricity.toFixed(4)}
-近地点: ${periapsis < 0 ? (periapsis/1000).toFixed(1) + ' km (撞击地面)' : (periapsis/1000).toFixed(1) + ' km'}
-远地点: ${apoapsis === Infinity ? '∞ (逃逸轨道)' : (apoapsis/1000).toFixed(1) + ' km'}
-轨道周期: ${orbitalPeriod === Infinity ? '∞ (逃逸)' : (orbitalPeriod/60).toFixed(1) + ' 分钟'}
-圆轨道速度: ${circularVelocity.toFixed(0)} m/s
-逃逸速度: ${escapeVelocity.toFixed(0)} m/s
-速度对比: 总速度/逃逸速度 = ${(totalVelocity/escapeVelocity).toFixed(2)}
-轨道类型: ${eccentricity >= 1 ? '双曲线(逃逸)' : eccentricity > 0.5 ? '高偏心率椭圆' : eccentricity > 0.1 ? '椭圆' : '近圆形'}
-========================`;
-            console.log(debugOutput);
-        }
-        
-        return this.orbitalElements;
-    }
-    
-    // 计算到达远地点/近地点的时间
-    calculateTimeToApsis(isApoapsis) {
-        // 简化计算，基于当前速度方向
-        const verticalVelocity = this.velocity;
-        
-        if (isApoapsis) {
-            // 如果向上运动，计算到达最高点的时间
-            if (verticalVelocity > 0) {
-                // 考虑重力减速
-                const currentRadius = this.earthRadius + this.altitude;
-                const gravity = (this.gravitationalConstant * this.earthMass) / (currentRadius * currentRadius);
-                return verticalVelocity / gravity;
-            }
-            return 0;
-        } else {
-            // 如果向下运动，计算到达最低点的时间
-            if (verticalVelocity < 0) {
-                const timeToGround = this.altitude / Math.abs(verticalVelocity);
-                return timeToGround;
-            }
-            return 0;
-        }
-    }
 
     // 更新质量（燃料消耗）
     updateMass() {
@@ -713,12 +446,12 @@ class LaunchSimulation {
                 if (engine.fuelStatus) {
                     if (consumption.liquid_fuel) {
                         engine.fuelStatus.liquid_fuel = Math.max(0, 
-                            engine.fuelStatus.liquid_fuel - consumption.liquid_fuel * this.deltaTime * throttleMultiplier
+                            engine.fuelStatus.liquid_fuel - consumption.liquid_fuel * this.baseDeltaTime * throttleMultiplier
                         );
                     }
                     if (consumption.oxidizer) {
                         engine.fuelStatus.oxidizer = Math.max(0, 
-                            engine.fuelStatus.oxidizer - consumption.oxidizer * this.deltaTime * throttleMultiplier
+                            engine.fuelStatus.oxidizer - consumption.oxidizer * this.baseDeltaTime * throttleMultiplier
                         );
                     }
                 } else {
@@ -751,7 +484,7 @@ class LaunchSimulation {
 
         // 按比例从活跃燃料罐消耗燃料
         if (consumption.liquid_fuel && totalLiquidFuel > 0) {
-            const liquidFuelToConsume = consumption.liquid_fuel * this.deltaTime * throttleMultiplier;
+            const liquidFuelToConsume = consumption.liquid_fuel * this.baseDeltaTime * throttleMultiplier;
             activeFuelTanks.forEach(tank => {
                 if (tank.fuelStatus.liquid_fuel > 0) {
                     const proportion = tank.fuelStatus.liquid_fuel / totalLiquidFuel;
@@ -764,7 +497,7 @@ class LaunchSimulation {
         }
 
         if (consumption.oxidizer && totalOxidizer > 0) {
-            const oxidizerToConsume = consumption.oxidizer * this.deltaTime * throttleMultiplier;
+            const oxidizerToConsume = consumption.oxidizer * this.baseDeltaTime * throttleMultiplier;
             activeFuelTanks.forEach(tank => {
                 if (tank.fuelStatus.oxidizer > 0) {
                     const proportion = tank.fuelStatus.oxidizer / totalOxidizer;
@@ -776,7 +509,7 @@ class LaunchSimulation {
             });
         }
         
-        console.log(`当前级燃料消耗 (${Math.round(throttleMultiplier * 100)}% 节流阀): 液体燃料-${(consumption.liquid_fuel * this.deltaTime * throttleMultiplier).toFixed(2)}, 氧化剂-${(consumption.oxidizer * this.deltaTime * throttleMultiplier).toFixed(2)}`);
+        console.log(`当前级燃料消耗 (${Math.round(throttleMultiplier * 100)}% 节流阀): 液体燃料-${(consumption.liquid_fuel * this.baseDeltaTime * throttleMultiplier).toFixed(2)}, 氧化剂-${(consumption.oxidizer * this.baseDeltaTime * throttleMultiplier).toFixed(2)}`);
     }
 
     // 检查分级条件
@@ -947,7 +680,7 @@ class LaunchSimulation {
 
     // 更新显示
     updateDisplay() {
-        // 更新飞行数据
+        // 更新基础飞行数据
         document.getElementById('altitude').textContent = `${Math.round(this.altitude)} m`;
         document.getElementById('velocity').textContent = `${Math.round(this.velocity)} m/s`;
         document.getElementById('horizontalVelocity').textContent = `${Math.round(this.horizontalVelocity)} m/s`;
@@ -965,20 +698,77 @@ class LaunchSimulation {
             horizontalPositionElement.textContent = `${Math.round(this.horizontalPosition)} m`;
         }
         
-        // 计算当前推重比
+        // 计算当前推重比（使用当前高度的重力）
         const thrust = this.calculateThrust() / 1000; // 转换为kN
-        const twr = this.mass > 0 ? (thrust / (this.mass * 9.81)) : 0;
+        const currentGravity = this.calculateGravityAtAltitude(this.altitude);
+        const twr = this.mass > 0 ? (thrust / (this.mass * currentGravity)) : 0;
         document.getElementById('twr').textContent = twr.toFixed(2);
         
         // 计算剩余Delta-V
         const remainingDeltaV = this.calculateRemainingDeltaV();
         document.getElementById('deltaV').textContent = `${Math.round(remainingDeltaV)} m/s`;
         
+        // 更新轨道信息显示
+        this.updateOrbitalDisplay();
+        
         // 更新燃料显示
         this.updateFuelDisplay();
         
         // 更新转向显示
         this.updateSteeringDisplay();
+        
+    }
+    
+    // 更新轨道信息显示
+    updateOrbitalDisplay() {
+        if (!this.orbitalData) return;
+        
+        // 更新轨道速度
+        const orbitalVelocityElement = document.getElementById('orbitalVelocity');
+        if (orbitalVelocityElement) {
+            orbitalVelocityElement.textContent = `${(this.orbitalData.orbitalVelocity / 1000).toFixed(2)} km/s`;
+        }
+        
+        // 更新圆轨道速度（用于参考）
+        const circularVelocityElement = document.getElementById('circularVelocity');
+        if (circularVelocityElement) {
+            circularVelocityElement.textContent = `${(this.orbitalData.circularVelocity / 1000).toFixed(2)} km/s`;
+        }
+        
+        // 更新轨道类型
+        const orbitTypeElement = document.getElementById('orbitType');
+        if (orbitTypeElement) {
+            orbitTypeElement.textContent = this.orbitalData.orbitType;
+            // 根据轨道状态设置颜色
+            if (this.orbitalData.isInOrbit) {
+                orbitTypeElement.style.color = '#4CAF50'; // 绿色表示成功入轨
+            } else if (this.orbitalData.orbitType.includes('椭圆')) {
+                orbitTypeElement.style.color = '#FF9800'; // 橙色表示椭圆轨道
+            } else {
+                orbitTypeElement.style.color = '#F44336'; // 红色表示其他状态
+            }
+        }
+        
+        // 更新离心率
+        const eccentricityElement = document.getElementById('eccentricity');
+        if (eccentricityElement) {
+            eccentricityElement.textContent = this.orbitalData.eccentricity.toFixed(3);
+        }
+        
+        // 更新轨道状态指示器
+        const orbitStatusElement = document.getElementById('orbitStatus');
+        if (orbitStatusElement) {
+            if (this.orbitalData.isInOrbit) {
+                orbitStatusElement.textContent = '✅ 已入轨';
+                orbitStatusElement.style.color = '#4CAF50';
+            } else if (this.altitude > 50000) {
+                orbitStatusElement.textContent = '🚀 接近轨道';
+                orbitStatusElement.style.color = '#FF9800';
+            } else {
+                orbitStatusElement.textContent = '⬆️ 上升中';
+                orbitStatusElement.style.color = '#2196F3';
+            }
+        }
         
         // 更新火箭位置
         this.updateRocketPosition();
@@ -1137,6 +927,68 @@ class LaunchSimulation {
         
         return false;
     }
+    
+    // 检查轨道状态
+    checkOrbitalStatus() {
+        // 计算轨道参数
+        const orbitalVelocity = this.radialDistance * Math.abs(this.angularVelocity); // 轨道速度
+        const escapeVelocity = Math.sqrt(2 * this.gravitationalConstant * this.earthMass / this.radialDistance); // 逃逸速度
+        const circularVelocity = Math.sqrt(this.gravitationalConstant * this.earthMass / this.radialDistance); // 圆轨道速度
+        
+        // 计算轨道能量（比能量，单位质量的能量）
+        const kineticEnergy = 0.5 * (this.radialVelocity * this.radialVelocity + orbitalVelocity * orbitalVelocity);
+        const potentialEnergy = -this.gravitationalConstant * this.earthMass / this.radialDistance;
+        const specificEnergy = kineticEnergy + potentialEnergy;
+        
+        // 计算轨道离心率
+        const angularMomentum = this.radialDistance * orbitalVelocity; // 简化：假设径向速度为0时的角动量
+        const eccentricity = Math.sqrt(1 + (2 * specificEnergy * angularMomentum * angularMomentum) / 
+                                      Math.pow(this.gravitationalConstant * this.earthMass, 2));
+        
+        // 判断轨道类型
+        let orbitType = '';
+        if (specificEnergy < 0) {
+            if (eccentricity < 1) {
+                orbitType = specificEnergy < -1e6 ? '椭圆轨道' : '不稳定轨道';
+            } else {
+                orbitType = '抛物线轨道';
+            }
+        } else {
+            orbitType = '双曲线轨道（逃逸）';
+        }
+        
+        // 检查是否成功入轨
+        const minOrbitAltitude = 100000; // 100km最低轨道高度
+        const isInOrbit = this.altitude > minOrbitAltitude && 
+                         specificEnergy < 0 && 
+                         eccentricity < 0.9 && 
+                         Math.abs(this.radialVelocity) < orbitalVelocity * 0.1; // 径向速度相对较小
+        
+        // 存储轨道信息用于显示
+        this.orbitalData = {
+            altitude: this.altitude,
+            orbitalVelocity: orbitalVelocity,
+            circularVelocity: circularVelocity,
+            escapeVelocity: escapeVelocity,
+            specificEnergy: specificEnergy,
+            eccentricity: eccentricity,
+            orbitType: orbitType,
+            isInOrbit: isInOrbit,
+            angularMomentum: angularMomentum
+        };
+        
+        // 如果成功入轨且之前未入轨，显示祝贺信息
+        if (isInOrbit && !this.hasReachedOrbit) {
+            this.hasReachedOrbit = true;
+            console.log(`🎉 成功入轨！`);
+            console.log(`轨道类型: ${orbitType}`);
+            console.log(`轨道高度: ${(this.altitude/1000).toFixed(1)}km`);
+            console.log(`轨道速度: ${(orbitalVelocity/1000).toFixed(2)}km/s`);
+            console.log(`离心率: ${eccentricity.toFixed(3)}`);
+        }
+        
+        return isInOrbit;
+    }
 
     // 更新分级UI
     updateStagingUI() {
@@ -1191,6 +1043,7 @@ class LaunchSimulation {
         }
         
         if (!engine.fuelStatus) {
+            console.log(`引擎 ${engine.data.name} 没有燃料状态，检查活跃燃料罐`);
             // 只检查未分离的燃料罐的燃料总量
             const activeFuelTanks = this.assembly.parts.filter(p => 
                 p.data.fuel_capacity && !this.separatedPartIds.has(p.id)
@@ -1211,6 +1064,7 @@ class LaunchSimulation {
                 const hasEnoughLiquid = !consumption.liquid_fuel || totalLiquidFuel > 0;
                 const hasEnoughOxidizer = !consumption.oxidizer || totalOxidizer > 0;
                 
+                console.log(`活跃燃料罐检查: 液体燃料=${totalLiquidFuel.toFixed(1)}, 氧化剂=${totalOxidizer.toFixed(1)}`);
                 return hasEnoughLiquid && hasEnoughOxidizer;
             }
             return false;
@@ -1427,6 +1281,20 @@ class LaunchSimulation {
     // 获取当前节流阀设置
     getThrottle() {
         return this.throttle;
+    }
+    
+    // 设置时间加速
+    setTimeAcceleration(multiplier) {
+        this.timeAcceleration = multiplier;
+        // 不再修改deltaTime，保持基础时间步长的稳定性
+        // this.deltaTime = this.baseDeltaTime * multiplier;
+        
+        console.log(`物理仿真时间加速设置为 ×${multiplier}，将每次更新进行${multiplier}次物理计算`);
+    }
+    
+    // 获取当前时间加速
+    getTimeAcceleration() {
+        return this.timeAcceleration;
     }
     
     // 设置转向角度（无限制）

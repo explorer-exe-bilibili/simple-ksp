@@ -1,0 +1,66 @@
+<!-- FL-T100 燃料罐 SVG -->
+<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tankGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8e8e8"/>
+      <stop offset="50%" style="stop-color:#cccccc"/>
+      <stop offset="100%" style="stop-color:#999999"/>
+    </linearGradient>
+    <linearGradient id="fuelGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a90e2"/>
+      <stop offset="100%" style="stop-color:#2c5aa0"/>
+    </linearGradient>
+    <linearGradient id="oxidizerGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6b35"/>
+      <stop offset="100%" style="stop-color:#d84315"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- 顶部连接口 -->
+  <rect x="35" y="5" width="30" height="10" rx="5" fill="#444" stroke="#222" stroke-width="1"/>
+  <circle cx="50" cy="10" r="3" fill="#666"/>
+  
+  <!-- 燃料罐主体 -->
+  <rect x="20" y="20" width="60" height="80" rx="8" fill="url(#tankGradient)" stroke="#666" stroke-width="2"/>
+  
+  <!-- 燃料液位指示 (左侧 - 液体燃料) -->
+  <rect x="25" y="25" width="20" height="70" rx="5" fill="url(#fuelGradient)" opacity="0.4"/>
+  
+  <!-- 氧化剂液位指示 (右侧) -->
+  <rect x="55" y="25" width="20" height="70" rx="5" fill="url(#oxidizerGradient)" opacity="0.4"/>
+  
+  <!-- 中央分隔线 -->
+  <line x1="50" y1="25" x2="50" y2="95" stroke="#888" stroke-width="2"/>
+  
+  <!-- 底部连接口 -->
+  <rect x="35" y="105" width="30" height="10" rx="5" fill="#444" stroke="#222" stroke-width="1"/>
+  <circle cx="50" cy="110" r="3" fill="#666"/>
+  
+  <!-- 左侧连接口 -->
+  <rect x="5" y="55" width="15" height="20" rx="3" fill="#444" stroke="#222" stroke-width="1"/>
+  <circle cx="12" cy="65" r="2" fill="#666"/>
+  
+  <!-- 右侧连接口 -->
+  <rect x="80" y="55" width="15" height="20" rx="3" fill="#444" stroke="#222" stroke-width="1"/>
+  <circle cx="88" cy="65" r="2" fill="#666"/>
+  
+  <!-- 标识和细节 -->
+  <text x="35" y="65" text-anchor="middle" fill="#444" font-size="7" font-weight="bold">LF</text>
+  <text x="65" y="65" text-anchor="middle" fill="#444" font-size="7" font-weight="bold">OX</text>
+  
+  <!-- 管道连接 -->
+  <rect x="18" y="35" width="4" height="50" rx="2" fill="#bbb" opacity="0.7"/>
+  <rect x="78" y="35" width="4" height="50" rx="2" fill="#bbb" opacity="0.7"/>
+  
+  <!-- 液位刻度 -->
+  <g stroke="#999" stroke-width="1" opacity="0.8">
+    <line x1="82" y1="30" x2="86" y2="30"/>
+    <line x1="82" y1="45" x2="86" y2="45"/>
+    <line x1="82" y1="60" x2="89" y2="60"/>
+    <line x1="82" y1="75" x2="86" y2="75"/>
+    <line x1="82" y1="90" x2="86" y2="90"/>
+  </g>
+  
+  <!-- 品牌标识 -->
+  <text x="50" y="90" text-anchor="middle" fill="#666" font-size="6">FL-T100</text>
+</svg>

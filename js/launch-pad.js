@@ -36,6 +36,13 @@ class LaunchPad {
         this.lastLandedState = false;
         this.lastStageState = 0;
         
+        // 地图视图状态
+        this.mapViewActive = false;
+        
+        // 时间加速
+        this.timeAcceleration = 1;
+        this.allowedTimeAccelerations = [1, 5, 10, 50, 100, 1000];
+        
         this.initializeUI();
         this.loadRocketData();
         
@@ -89,10 +96,10 @@ class LaunchPad {
         
         // 初始化节流阀控制
         this.initializeThrottleControl();
-        
+         
         // 初始化导航条（设置初始状态）
         this.updateNavigationPointer();
-        
+
         // 初始化键盘控制
         this.initializeKeyboardControls();
         
@@ -479,6 +486,8 @@ class LaunchPad {
                 this.updateCameraView();
                 // 只在状态发生重大变化时更新火箭显示，避免闪烁
                 this.updateRocketDisplayIfNeeded();
+                // 更新地图视图（如果开启）
+                this.updateMapView();
             }
         }, 100); // 每100ms更新一次
     }
@@ -687,21 +696,11 @@ class LaunchPad {
     updateLiveFlightData() {
         if (!this.simulation) return;
         
-        // 更新基础数据
+        // 更新实时数据
         document.getElementById('altitude').textContent = `${this.simulation.altitude.toFixed(1)} m`;
         document.getElementById('velocity').textContent = `${this.simulation.velocity.toFixed(1)} m/s`;
         document.getElementById('acceleration').textContent = `${this.simulation.acceleration.toFixed(2)} m/s²`;
         document.getElementById('mass').textContent = `${this.simulation.mass.toFixed(2)} t`;
-        
-        // 更新水平数据
-        const horizontalVelocityElement = document.getElementById('horizontalVelocity');
-        const horizontalPositionElement = document.getElementById('horizontalPosition');
-        if (horizontalVelocityElement) {
-            horizontalVelocityElement.textContent = `${this.simulation.horizontalVelocity.toFixed(1)} m/s`;
-        }
-        if (horizontalPositionElement) {
-            horizontalPositionElement.textContent = `${Math.round(this.simulation.horizontalPosition)} m`;
-        }
         
         // 计算当前推重比
         const totalThrust = this.simulation.calculateThrust() / 1000; // 转换为kN
@@ -713,140 +712,12 @@ class LaunchPad {
         const remainingDeltaV = stagingInfo.slice(this.simulation.currentStage).reduce((sum, stage) => sum + stage.deltaV, 0);
         document.getElementById('deltaV').textContent = `${remainingDeltaV.toFixed(0)} m/s`;
         
-        // 更新导航条指针位置（以当前朝向为中心）
-        this.updateNavigationPointer();
-        
-        // 更新轨道数据
-        this.updateOrbitalData();
-        
         // 更新当前级燃料显示
         this.updateCurrentStageFuel();
+        // 更新导航条指针位置（以当前朝向为中心）
+        this.updateNavigationPointer();
     }
-    
-    // 更新轨道数据显示
-    updateOrbitalData() {
-        if (!this.simulation) return;
-        
-        // 计算总速度
-        const totalVelocity = Math.sqrt(
-            this.simulation.velocity * this.simulation.velocity + 
-            this.simulation.horizontalVelocity * this.simulation.horizontalVelocity
-        );
-        
-        // 计算距地心距离
-        const distanceFromCenter = (this.simulation.earthRadius + this.simulation.altitude) / 1000; // 转换为km
-        
-        // 更新基本轨道显示
-        const totalVelocityElement = document.getElementById('totalVelocity');
-        const orbitalStatusElement = document.getElementById('orbitalStatus');
-        const distanceFromCenterElement = document.getElementById('distanceFromCenter');
-        const orbitalDetailsElement = document.getElementById('orbitalDetails');
-        
-        if (totalVelocityElement) {
-            totalVelocityElement.textContent = `${totalVelocity.toFixed(1)} m/s`;
-        }
-        
-        if (orbitalStatusElement) {
-            if (this.simulation.inOrbit) {
-                const orbitalText = window.i18n ? window.i18n.t('launchPad.flightData.orbital') : '轨道';
-                orbitalStatusElement.textContent = `🛰️ ${orbitalText}`;
-                orbitalStatusElement.style.color = '#00ff00';
-                
-                // 显示详细轨道信息
-                if (orbitalDetailsElement) {
-                    orbitalDetailsElement.style.display = 'block';
-                    this.updateDetailedOrbitalData();
-                }
-            } else {
-                const suborbitalText = window.i18n ? window.i18n.t('launchPad.flightData.suborbital') : '亚轨道';
-                orbitalStatusElement.textContent = `🚀 ${suborbitalText}`;
-                orbitalStatusElement.style.color = '#ffaa00';
-                
-                // 隐藏详细轨道信息
-                if (orbitalDetailsElement) {
-                    orbitalDetailsElement.style.display = 'none';
-                }
-            }
-        }
-        
-        if (distanceFromCenterElement) {
-            distanceFromCenterElement.textContent = `${distanceFromCenter.toFixed(1)} km`;
-        }
-    }
-    
-    // 更新详细轨道数据
-    updateDetailedOrbitalData() {
-        if (!this.simulation || !this.simulation.orbitalElements) return;
-        
-        const elements = this.simulation.orbitalElements;
-        
-        // 更新远地点
-        const apoapsisElement = document.getElementById('apoapsis');
-        if (apoapsisElement) {
-            if (elements.apoapsis === Infinity) {
-                apoapsisElement.textContent = '∞ (逃逸)';
-            } else {
-                apoapsisElement.textContent = `${(elements.apoapsis / 1000).toFixed(1)} km`;
-            }
-        }
-        
-        // 更新近地点
-        const periapsisElement = document.getElementById('periapsis');
-        if (periapsisElement) {
-            periapsisElement.textContent = `${(elements.periapsis / 1000).toFixed(1)} km`;
-        }
-        
-        // 更新偏心率
-        const eccentricityElement = document.getElementById('eccentricity');
-        if (eccentricityElement) {
-            eccentricityElement.textContent = elements.eccentricity.toFixed(3);
-            
-            // 根据偏心率设置颜色
-            if (elements.eccentricity < 0.1) {
-                eccentricityElement.style.color = '#00ff00'; // 接近圆形轨道
-            } else if (elements.eccentricity < 0.5) {
-                eccentricityElement.style.color = '#ffaa00'; // 椭圆轨道
-            } else if (elements.eccentricity < 1.0) {
-                eccentricityElement.style.color = '#ff6600'; // 高偏心率椭圆
-            } else {
-                eccentricityElement.style.color = '#ff0000'; // 双曲线轨道
-            }
-        }
-        
-        // 更新轨道周期
-        const orbitalPeriodElement = document.getElementById('orbitalPeriod');
-        if (orbitalPeriodElement) {
-            if (elements.orbitalPeriod === Infinity) {
-                orbitalPeriodElement.textContent = '∞ (逃逸)';
-            } else {
-                const periodMinutes = elements.orbitalPeriod / 60;
-                const periodHours = periodMinutes / 60;
-                const periodDays = periodHours / 24;
-                
-                if (periodDays >= 1) {
-                    orbitalPeriodElement.textContent = `${periodDays.toFixed(1)}d`;
-                } else if (periodHours >= 1) {
-                    orbitalPeriodElement.textContent = `${periodHours.toFixed(1)}h`;
-                } else {
-                    orbitalPeriodElement.textContent = `${periodMinutes.toFixed(1)}min`;
-                }
-            }
-        }
-        
-        // 更新圆轨道速度
-        const circularVelocityElement = document.getElementById('circularVelocity');
-        if (circularVelocityElement) {
-            circularVelocityElement.textContent = `${elements.circularVelocity.toFixed(0)} m/s`;
-        }
-        
-        // 更新逃逸速度
-        const escapeVelocityElement = document.getElementById('escapeVelocity');
-        if (escapeVelocityElement) {
-            escapeVelocityElement.textContent = `${elements.escapeVelocity.toFixed(0)} m/s`;
-        }
-    }
-    
-    // 更新导航条指针位置（以当前朝向为中心）
+        // 更新导航条指针位置（以当前朝向为中心）
     updateNavigationPointer() {
         const navPointer = document.getElementById('navPointer');
         const navCenter = document.querySelector('.nav-center');
@@ -874,51 +745,27 @@ class LaunchPad {
         
         // 更新指针位置
         navPointer.style.left = `${clampedPosition}%`;
-        
-        // 计算入轨建议角度
-        const guidanceData = this.calculateOrbitGuidance();
-        
+
         // 更新标签以反映当前朝向
         const leftAngle = currentAngle - maxAngle;
         const rightAngle = currentAngle + maxAngle;
         const centerAngle = currentAngle;
+        
+        // 标准化角度到 0-360 范围
+        const normalizeAngle = (angle) => {
+            while (angle >= 360) angle -= 360;
+            while (angle < 0) angle += 360;
+            return angle;
+        };
         
         const leftLabel = navLabels.querySelector('.nav-label.left');
         const centerLabel = navLabels.querySelector('.nav-label.center');
         const rightLabel = navLabels.querySelector('.nav-label.right');
         
         if (leftLabel && centerLabel && rightLabel) {
-            leftLabel.textContent = `${leftAngle.toFixed(0)}°`;
-            centerLabel.textContent = `${centerAngle.toFixed(0)}°`;
-            rightLabel.textContent = `${rightAngle.toFixed(0)}°`;
-        }
-        
-        // 更新入轨指导显示
-        if (navGuidance && navHint && guidanceData.showGuidance) {
-            const targetAngle = guidanceData.targetAngle;
-            const angleDiff = targetAngle - currentAngle;
-            
-            // 计算建议角度在导航条上的位置
-            if (Math.abs(angleDiff) <= maxAngle) {
-                const guidancePosition = 50 + (angleDiff / maxAngle) * 50; // 转换为百分比
-                const clampedGuidancePosition = Math.max(5, Math.min(95, guidancePosition));
-                
-                navGuidance.style.left = `${clampedGuidancePosition}%`;
-                navGuidance.classList.add('visible');
-                
-                // 显示提示文字
-                navHint.textContent = guidanceData.hint;
-                navHint.classList.add('visible');
-            } else {
-                // 建议角度超出显示范围
-                navGuidance.classList.remove('visible');
-                navHint.textContent = guidanceData.hint;
-                navHint.classList.add('visible');
-            }
-        } else if (navGuidance && navHint) {
-            // 隐藏指导
-            navGuidance.classList.remove('visible');
-            navHint.classList.remove('visible');
+            leftLabel.textContent = `${normalizeAngle(leftAngle).toFixed(0)}°`;
+            centerLabel.textContent = `${normalizeAngle(centerAngle).toFixed(0)}°`;
+            rightLabel.textContent = `${normalizeAngle(rightAngle).toFixed(0)}°`;
         }
         
         // 更新中心标记的颜色，让它更明显地表示当前朝向
@@ -926,112 +773,79 @@ class LaunchPad {
             navCenter.style.background = currentAngle === 0 ? '#00ff00' : '#ffaa00';
             navCenter.style.boxShadow = `0 0 8px ${currentAngle === 0 ? '#00ff00' : '#ffaa00'}`;
         }
+        
+        // 添加速度方向标记
+        this.updateVelocityDirection(maxAngle, navBarWidth, currentAngle);
     }
     
-    // 计算入轨指导建议
-    calculateOrbitGuidance() {
-        if (!this.simulation || !this.simulation.isRunning) {
-            return { showGuidance: false };
+    // 更新速度方向标记
+    updateVelocityDirection(maxAngle, navBarWidth, currentAngle) {
+        let velocityMarker = document.getElementById('velocityMarker');
+        const navBar = document.querySelector('.nav-bar');
+        
+        if (!navBar) return;
+        
+        // 如果速度标记不存在则创建
+        if (!velocityMarker) {
+            velocityMarker = document.createElement('div');
+            velocityMarker.id = 'velocityMarker';
+            velocityMarker.style.cssText = `
+                position: absolute;
+                top: -2px;
+                width: 3px;
+                height: calc(100% + 4px);
+                background: #00ff00;
+                z-index: 15;
+                border-radius: 1px;
+                box-shadow: 0 0 4px #00ff00;
+                transition: left 0.1s ease;
+                pointer-events: none;
+            `;
+            navBar.appendChild(velocityMarker);
         }
         
-        const altitude = this.simulation.altitude;
-        const velocity = this.simulation.velocity;
-        const horizontalVelocity = this.simulation.horizontalVelocity;
-        const currentAngle = this.simulation.steeringAngle || 0;
-        const totalVelocity = Math.sqrt(velocity * velocity + horizontalVelocity * horizontalVelocity);
-        
-        // 入轨阶段判断和建议
-        if (altitude < 1000) {
-            // 起飞阶段：垂直爬升
-            return {
-                showGuidance: true,
-                targetAngle: 0,
-                hint: "垂直爬升",
-                phase: "launch"
-            };
-        } else if (altitude < 8000) {
-            // 重力转向开始阶段：轻微东向倾斜
-            const progress = altitude / 8000; // 0 到 1
-            const targetAngle = progress * 10; // 从0°到10°
-            return {
-                showGuidance: true,
-                targetAngle: targetAngle,
-                hint: `重力转向 ${targetAngle.toFixed(0)}°`,
-                phase: "gravity_turn_start"
-            };
-        } else if (altitude < 40000) {
-            // 重力转向主要阶段：逐渐倾斜向东
-            const progress = (altitude - 8000) / 32000; // 0 到 1
-            const targetAngle = 10 + progress * 35; // 从10°到45°
-            return {
-                showGuidance: true,
-                targetAngle: targetAngle,
-                hint: `重力转向 ${targetAngle.toFixed(0)}°`,
-                phase: "gravity_turn_main"
-            };
-        } else if (altitude < 70000) {
-            // 轨道插入准备阶段
-            const progress = (altitude - 40000) / 30000; // 0 到 1
+        // 计算速度方向
+        if (this.simulation && this.simulation.isRunning) {
+            const vr = this.simulation.radialVelocity || 0;
+            const vt = (this.simulation.radialDistance * this.simulation.angularVelocity) || 0;
             
-            // 根据当前速度调整目标角度
-            if (totalVelocity < 3000) {
-                // 速度不够，继续倾斜加速
-                const targetAngle = 45 + progress * 30; // 从45°到75°
-                return {
-                    showGuidance: true,
-                    targetAngle: targetAngle,
-                    hint: `加速倾斜 ${targetAngle.toFixed(0)}°`,
-                    phase: "acceleration"
-                };
+            // 计算速度矢量的角度（相对于垂直向上）
+            let velocityAngle = Math.atan2(vt, vr) * 180 / Math.PI;
+            
+            // 将速度角度转换为相对于当前朝向的偏移
+            let angleOffset = velocityAngle - currentAngle;
+            
+            // 标准化角度偏移到 ±180 范围
+            while (angleOffset > 180) angleOffset -= 360;
+            while (angleOffset < -180) angleOffset += 360;
+            
+            // 检查速度方向是否在导航条显示范围内
+            if (Math.abs(angleOffset) <= maxAngle) {
+                const pixelOffset = (angleOffset / maxAngle) * (navBarWidth / 2);
+                const markerPosition = 50 + (pixelOffset / navBarWidth) * 100;
+                const clampedPosition = Math.max(0, Math.min(100, markerPosition));
+                
+                velocityMarker.style.left = `${clampedPosition}%`;
+                velocityMarker.style.display = 'block';
+                
+                // 添加工具提示
+                velocityMarker.title = `速度方向: ${normalizeAngle(velocityAngle).toFixed(1)}°`;
             } else {
-                // 速度足够，准备水平
-                const targetAngle = 75 + progress * 15; // 从75°到90°
-                return {
-                    showGuidance: true,
-                    targetAngle: targetAngle,
-                    hint: `准备水平 ${targetAngle.toFixed(0)}°`,
-                    phase: "pre_orbital"
-                };
+                // 速度方向超出显示范围，隐藏标记
+                velocityMarker.style.display = 'none';
             }
         } else {
-            // 轨道插入阶段：水平飞行建立轨道
-            const orbitalVelocity = 7200; // 调整为新的轨道速度阈值
-            
-            if (totalVelocity < orbitalVelocity * 0.85) {
-                return {
-                    showGuidance: true,
-                    targetAngle: 90,
-                    hint: `水平加速 ${Math.round(totalVelocity)}/${orbitalVelocity}m/s`,
-                    phase: "orbital_insertion"
-                };
-            } else if (this.simulation.inOrbit) {
-                return {
-                    showGuidance: false,
-                    hint: "🛰️ 入轨成功！",
-                    phase: "orbital"
-                };
-            } else {
-                // 接近轨道速度但还未入轨
-                const horizontalRatio = Math.abs(horizontalVelocity) / totalVelocity;
-                if (horizontalRatio < 0.6) { // 调整为新的水平速度要求
-                    return {
-                        showGuidance: true,
-                        targetAngle: 90,
-                        hint: "增加水平速度",
-                        phase: "circularization"
-                    };
-                } else {
-                    return {
-                        showGuidance: true,
-                        targetAngle: 90,
-                        hint: "保持水平建立轨道",
-                        phase: "circularization"
-                    };
-                }
-            }
+            // 未发射时隐藏速度标记
+            velocityMarker.style.display = 'none';
+        }
+        
+        // 标准化角度函数（本地版本）
+        function normalizeAngle(angle) {
+            while (angle >= 360) angle -= 360;
+            while (angle < 0) angle += 360;
+            return angle;
         }
     }
-    
     // 更新当前级燃料显示
     updateCurrentStageFuel() {
         if (!this.simulation) return;
@@ -1424,6 +1238,41 @@ class LaunchPad {
                 }
                 handled = true;
                 break;
+            case 'm':
+                // M键：切换地图视图
+                this.toggleMapView();
+                handled = true;
+                break;
+            case '1':
+                // 1键：×1 时间加速
+                this.setTimeAcceleration(1);
+                handled = true;
+                break;
+            case '2':
+                // 2键：×5 时间加速
+                this.setTimeAcceleration(5);
+                handled = true;
+                break;
+            case '3':
+                // 3键：×10 时间加速
+                this.setTimeAcceleration(10);
+                handled = true;
+                break;
+            case '4':
+                // 4键：×50 时间加速
+                this.setTimeAcceleration(50);
+                handled = true;
+                break;
+            case '5':
+                // 5键：×100 时间加速
+                this.setTimeAcceleration(100);
+                handled = true;
+                break;
+            case '6':
+                // 6键：×1000 时间加速
+                this.setTimeAcceleration(1000);
+                handled = true;
+                break;
         }
         
         if (handled) {
@@ -1475,6 +1324,432 @@ class LaunchPad {
                 this.stopContinuousInput();
             }
         }
+    }
+    
+    // 切换地图视图
+    toggleMapView() {
+        this.mapViewActive = !this.mapViewActive;
+        
+        const mapOverlay = document.getElementById('mapOverlay');
+        
+        if (this.mapViewActive) {
+            // 显示地图
+            this.showMapView();
+        } else {
+            // 隐藏地图
+            if (mapOverlay) {
+                mapOverlay.style.display = 'none';
+            }
+        }
+        
+        console.log(`地图视图 ${this.mapViewActive ? '已开启' : '已关闭'}`);
+    }
+    
+    // 显示地图视图
+    showMapView() {
+        // 创建或获取地图覆盖层
+        let mapOverlay = document.getElementById('mapOverlay');
+        if (!mapOverlay) {
+            mapOverlay = this.createMapOverlay();
+        }
+        
+        // 重置轨迹历史
+        this.trajectoryHistory = [];
+        
+        mapOverlay.style.display = 'flex';
+        this.updateMapView();
+    }
+    
+    // 创建地图覆盖层
+    createMapOverlay() {
+        const mapOverlay = document.createElement('div');
+        mapOverlay.id = 'mapOverlay';
+        mapOverlay.className = 'map-overlay';
+        
+        mapOverlay.innerHTML = `
+            <div class="map-container">
+                <div class="map-header">
+                    <h3>轨道地图</h3>
+                    <button class="map-close-btn" onclick="launchPad.toggleMapView()">×</button>
+                </div>
+                <div class="map-content">
+                    <svg id="mapSvg" viewBox="-400 -400 800 800">
+                        <!-- 地球 -->
+                        <circle cx="0" cy="0" r="100" fill="#4CAF50" stroke="#2E7D32" stroke-width="2"/>
+                        <circle cx="0" cy="0" r="100" fill="url(#earthGradient)" opacity="0.8"/>
+                        
+                        <!-- 大气层 -->
+                        <circle cx="0" cy="0" r="120" fill="none" stroke="#87CEEB" stroke-width="1" opacity="0.5"/>
+                        
+                        <!-- 轨道参考线 -->
+                        <circle cx="0" cy="0" r="150" fill="none" stroke="#FFF" stroke-width="1" opacity="0.3" stroke-dasharray="5,5"/>
+                        <circle cx="0" cy="0" r="200" fill="none" stroke="#FFF" stroke-width="1" opacity="0.3" stroke-dasharray="5,5"/>
+                        <circle cx="0" cy="0" r="250" fill="none" stroke="#FFF" stroke-width="1" opacity="0.3" stroke-dasharray="5,5"/>
+                        
+                        <!-- 轨道路径预测（绿色） -->
+                        <path id="orbitPath" fill="none" stroke="#00FF00" stroke-width="2" opacity="0.8"/>
+                        
+                        <!-- 火箭轨迹历史（淡蓝色） -->
+                        <path id="trajectoryPath" fill="none" stroke="#40E0D0" stroke-width="1.5" opacity="0.6"/>
+                        
+                        <!-- 火箭位置 -->
+                        <circle id="rocketMarker" cx="0" cy="-100" r="4" fill="#FF4444" stroke="#FFF" stroke-width="2"/>
+                        <text id="rocketLabel" x="5" y="-95" fill="#FFF" font-size="12">🚀</text>
+                        
+                        <!-- 渐变定义 -->
+                        <defs>
+                            <radialGradient id="earthGradient" cx="30%" cy="30%">
+                                <stop offset="0%" stop-color="#81C784"/>
+                                <stop offset="50%" stop-color="#4CAF50"/>
+                                <stop offset="100%" stop-color="#2E7D32"/>
+                            </radialGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="map-info">
+                    <div class="map-data">
+                        <span>高度: <span id="mapAltitude">0 km</span></span>
+                        <span>速度: <span id="mapVelocity">0 m/s</span></span>
+                        <span>角度: <span id="mapAngle">0°</span></span>
+                    </div>
+                    <div class="map-hint">按 M 键关闭地图 | 鼠标滚轮缩放</div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(mapOverlay);
+        
+        // 添加缩放功能
+        this.setupMapZoom();
+        
+        return mapOverlay;
+    }
+    
+    // 设置地图缩放功能
+    setupMapZoom() {
+        this.mapZoomLevel = 1.0;
+        this.trajectoryHistory = []; // 轨迹历史记录
+        
+        const mapSvg = document.getElementById('mapSvg');
+        if (!mapSvg) return;
+        
+        mapSvg.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            this.mapZoomLevel *= delta;
+            
+            // 限制缩放范围
+            this.mapZoomLevel = Math.max(0.3, Math.min(5.0, this.mapZoomLevel));
+            
+            // 更新视图框
+            const baseSize = 400;
+            const size = baseSize / this.mapZoomLevel;
+            mapSvg.setAttribute('viewBox', `-${size} -${size} ${size * 2} ${size * 2}`);
+            
+            console.log(`地图缩放: ${(this.mapZoomLevel * 100).toFixed(0)}%`);
+        });
+    }
+    
+    // 更新地图视图
+    updateMapView() {
+        if (!this.mapViewActive || !this.simulation) return;
+        
+        const rocketMarker = document.getElementById('rocketMarker');
+        const rocketLabel = document.getElementById('rocketLabel');
+        const mapAltitude = document.getElementById('mapAltitude');
+        const mapVelocity = document.getElementById('mapVelocity');
+        const mapAngle = document.getElementById('mapAngle');
+        const orbitPath = document.getElementById('orbitPath');
+        const trajectoryPath = document.getElementById('trajectoryPath');
+        
+        if (!rocketMarker) return;
+        
+        // 计算火箭在地图上的位置
+        const earthRadius = 100; // 地图上地球的半径（像素）
+        const scale = earthRadius / (this.simulation.earthRadius / 1000); // km per pixel
+        
+        // 火箭距离地心的距离（地图像素）
+        const rocketRadius = earthRadius + (this.simulation.altitude / 1000) * scale;
+        
+        // 火箭的角位置
+        const angle = this.simulation.angularPosition || 0;
+        
+        // 计算火箭在地图上的坐标
+        const rocketX = rocketRadius * Math.sin(angle);
+        const rocketY = -rocketRadius * Math.cos(angle); // Y轴向上为负
+        
+        // 更新火箭位置
+        rocketMarker.setAttribute('cx', rocketX);
+        rocketMarker.setAttribute('cy', rocketY);
+        rocketLabel.setAttribute('x', rocketX + 5);
+        rocketLabel.setAttribute('y', rocketY - 5);
+        
+        // 记录轨迹历史
+        if (this.trajectoryHistory) {
+            this.trajectoryHistory.push({x: rocketX, y: rocketY, time: Date.now()});
+            
+            // 限制历史记录长度（保留最近500个点）
+            if (this.trajectoryHistory.length > 500) {
+                this.trajectoryHistory = this.trajectoryHistory.slice(-500);
+            }
+            
+            // 绘制轨迹历史
+            this.drawTrajectoryHistory(trajectoryPath);
+        }
+        
+        // 更新信息显示
+        if (mapAltitude) mapAltitude.textContent = `${(this.simulation.altitude / 1000).toFixed(1)} km`;
+        if (mapVelocity) {
+            const totalVelocity = Math.sqrt(
+                this.simulation.radialVelocity * this.simulation.radialVelocity + 
+                (this.simulation.radialDistance * this.simulation.angularVelocity) * (this.simulation.radialDistance * this.simulation.angularVelocity)
+            );
+            mapVelocity.textContent = `${totalVelocity.toFixed(0)} m/s`;
+        }
+        if (mapAngle) mapAngle.textContent = `${(angle * 180 / Math.PI).toFixed(1)}°`;
+        
+        // 绘制轨道路径预测（绿色）
+        if (orbitPath && this.simulation.orbitalData) {
+            this.drawOrbitPrediction(orbitPath, earthRadius, scale, rocketX, rocketY);
+        }
+    }
+    
+    // 绘制轨迹历史
+    drawTrajectoryHistory(pathElement) {
+        if (!this.trajectoryHistory || this.trajectoryHistory.length < 2) return;
+        
+        let pathD = '';
+        this.trajectoryHistory.forEach((point, index) => {
+            if (index === 0) {
+                pathD += `M ${point.x} ${point.y}`;
+            } else {
+                pathD += ` L ${point.x} ${point.y}`;
+            }
+        });
+        
+        pathElement.setAttribute('d', pathD);
+    }
+    
+    // 绘制轨道预测路径（绿色）
+    drawOrbitPrediction(pathElement, earthRadius, scale, currentX, currentY) {
+        if (!this.simulation.orbitalData) {
+            pathElement.setAttribute('d', '');
+            return;
+        }
+        
+        const data = this.simulation.orbitalData;
+        
+        // 只有在轨道状态下才显示预测路径
+        if (!data.isInOrbit && this.simulation.altitude < 100000) {
+            // 低空时绘制抛物线轨迹
+            this.drawTrajectoryPrediction(pathElement, earthRadius, scale, currentX, currentY);
+            return;
+        }
+        
+        // 计算轨道参数
+        const r = this.simulation.radialDistance;
+        const vr = this.simulation.radialVelocity;
+        const vt = this.simulation.radialDistance * this.simulation.angularVelocity;
+        
+        // 计算轨道能量和角动量
+        const GM = this.simulation.earthMass * this.simulation.gravitationalConstant;
+        const specificEnergy = (vr * vr + vt * vt) / 2 - GM / r;
+        const angularMomentum = r * vt;
+        
+        // 计算半长轴
+        const semiMajorAxis = -GM / (2 * specificEnergy);
+        
+        // 计算离心率
+        const eccentricity = Math.sqrt(1 + (2 * specificEnergy * angularMomentum * angularMomentum) / (GM * GM));
+        
+        // 限制离心率防止极端情况
+        const e = Math.min(eccentricity, 0.98);
+        
+        if (semiMajorAxis > 0 && e < 1) {
+            // 椭圆轨道
+            this.drawEllipticalOrbit(pathElement, semiMajorAxis, e, earthRadius, scale);
+        } else {
+            // 双曲线轨道或抛物线轨道
+            this.drawHyperbolicTrajectory(pathElement, earthRadius, scale, currentX, currentY);
+        }
+    }
+    
+    // 绘制椭圆轨道
+    drawEllipticalOrbit(pathElement, semiMajorAxis, eccentricity, earthRadius, scale) {
+        // 使用当前位置和速度，通过物理积分绘制真实轨道
+        const GM = this.simulation.earthMass * this.simulation.gravitationalConstant;
+        
+        // 当前状态
+        let r = this.simulation.radialDistance;
+        let theta = this.simulation.angularPosition;
+        let vr = this.simulation.radialVelocity;
+        let vtheta = this.simulation.radialDistance * this.simulation.angularVelocity;
+        
+        // 保存初始状态
+        const initialTheta = theta;
+        
+        let pathD = '';
+        const maxSteps = 200;
+        const dt = 50; // 50秒步长
+        
+        for (let i = 0; i <= maxSteps; i++) {
+            // 转换到地图坐标
+            const mapR = r / 1000 * scale;
+            const x = mapR * Math.sin(theta);
+            const y = -mapR * Math.cos(theta);
+            
+            if (i === 0) {
+                pathD += `M ${x} ${y}`;
+            } else {
+                pathD += ` L ${x} ${y}`;
+            }
+            
+            // 检查是否完成一圈轨道
+            if (i > 20 && Math.abs(theta - initialTheta - 2 * Math.PI) < 0.5) {
+                // 轨道闭合，连接到起点
+                const mapR0 = this.simulation.radialDistance / 1000 * scale;
+                const x0 = mapR0 * Math.sin(initialTheta);
+                const y0 = -mapR0 * Math.cos(initialTheta);
+                pathD += ` L ${x0} ${y0}`;
+                break;
+            }
+            
+            // 物理积分
+            if (i < maxSteps) {
+                // 计算重力加速度
+                const gravity = GM / (r * r);
+                const ar = vtheta * vtheta / r - gravity; // 径向加速度（包含离心力）
+                const atheta = -2 * vr * vtheta / r; // 切向加速度（科里奥利效应）
+                
+                // 更新速度
+                vr += ar * dt;
+                vtheta += atheta * dt;
+                
+                // 更新位置
+                r += vr * dt;
+                theta += vtheta / r * dt;
+                
+                // 防止撞击地面或飞得太远
+                if (r <= this.simulation.earthRadius * 1.01 || r > this.simulation.earthRadius * 20) {
+                    break;
+                }
+            }
+        }
+        
+        pathElement.setAttribute('d', pathD);
+    }
+    
+    // 绘制圆形轨道
+    drawCircularOrbit(pathElement, radius, earthRadius, scale) {
+        const r = radius / 1000 * scale;
+        const pathD = `M ${r} 0 A ${r} ${r} 0 1 1 ${-r} 0 A ${r} ${r} 0 1 1 ${r} 0`;
+        pathElement.setAttribute('d', pathD);
+    }
+    
+    // 绘制双曲线轨迹
+    drawHyperbolicTrajectory(pathElement, earthRadius, scale, currentX, currentY) {
+        let pathD = `M ${currentX} ${currentY}`;
+        
+        // 简单的未来轨迹预测（基于当前速度）
+        const vr = this.simulation.radialVelocity;
+        const vt = this.simulation.radialDistance * this.simulation.angularVelocity;
+        
+        // 预测未来30个时间步的位置
+        const dt = 10; // 时间步长（秒）
+        let currentAngle = this.simulation.angularPosition;
+        let currentRadius = this.simulation.radialDistance;
+        
+        for (let i = 1; i <= 30; i++) {
+            // 简化的积分
+            currentRadius += vr * dt;
+            currentAngle += (vt / currentRadius) * dt;
+            
+            const predictedX = (currentRadius / 1000 * scale) * Math.sin(currentAngle);
+            const predictedY = -(currentRadius / 1000 * scale) * Math.cos(currentAngle);
+            
+            pathD += ` L ${predictedX} ${predictedY}`;
+            
+            // 如果脱离显示范围则停止
+            if (Math.abs(predictedX) > 800 || Math.abs(predictedY) > 800) break;
+        }
+        
+        pathElement.setAttribute('d', pathD);
+    }
+    
+    // 绘制低空抛物线轨迹
+    drawTrajectoryPrediction(pathElement, earthRadius, scale, currentX, currentY) {
+        let pathD = `M ${currentX} ${currentY}`;
+        
+        // 基于当前速度和重力的抛物线预测
+        const vr = this.simulation.radialVelocity;
+        const vt = this.simulation.radialDistance * this.simulation.angularVelocity;
+        const r = this.simulation.radialDistance;
+        
+        const dt = 5; // 时间步长
+        let angle = this.simulation.angularPosition;
+        let radius = r;
+        let radialVel = vr;
+        
+        for (let i = 1; i <= 50; i++) {
+            // 计算重力加速度
+            const GM = this.simulation.earthMass * this.simulation.gravitationalConstant;
+            const gravity = GM / (radius * radius);
+            
+            // 更新位置和速度
+            radialVel -= gravity * dt;
+            radius += radialVel * dt;
+            angle += (vt / radius) * dt;
+            
+            // 检查是否撞击地面
+            if (radius <= this.simulation.earthRadius) break;
+            
+            const predX = (radius / 1000 * scale) * Math.sin(angle);
+            const predY = -(radius / 1000 * scale) * Math.cos(angle);
+            
+            pathD += ` L ${predX} ${predY}`;
+            
+            // 限制显示范围
+            if (Math.abs(predX) > 600 || Math.abs(predY) > 600) break;
+        }
+        
+        pathElement.setAttribute('d', pathD);
+    }
+    
+    // 设置时间加速
+    setTimeAcceleration(multiplier) {
+        if (this.allowedTimeAccelerations.includes(multiplier)) {
+            this.timeAcceleration = multiplier;
+            
+            // 同时设置物理引擎的时间加速
+            if (this.simulation) {
+                this.simulation.setTimeAcceleration(multiplier);
+            }
+            
+            // 更新显示
+            const timeAccelValue = document.getElementById('timeAccelValue');
+            if (timeAccelValue) {
+                timeAccelValue.textContent = `×${multiplier}`;
+                
+                // 根据加速倍率改变颜色
+                if (multiplier === 1) {
+                    timeAccelValue.style.color = '#4CAF50'; // 绿色 - 正常时间
+                } else if (multiplier <= 10) {
+                    timeAccelValue.style.color = '#FFA726'; // 橙色 - 低速加速
+                } else if (multiplier <= 100) {
+                    timeAccelValue.style.color = '#FF7043'; // 深橙色 - 中速加速
+                } else {
+                    timeAccelValue.style.color = '#F44336'; // 红色 - 高速加速
+                }
+            }
+            
+            console.log(`时间加速设置为 ×${multiplier}`);
+        }
+    }
+    
+    // 获取当前时间加速
+    getTimeAcceleration() {
+        return this.timeAcceleration;
     }
     
     // 启动连续输入处理

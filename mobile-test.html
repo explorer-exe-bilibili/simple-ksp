@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动端UI测试</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: white;
+        }
+        
+        .test-container {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .viewport-info {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .screen-sizes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .size-card {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .size-card.active {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.6);
+        }
+        
+        .test-link {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px;
+        }
+        
+        .test-link:hover {
+            background: #0056b3;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-indicator {
+                background: rgba(40, 167, 69, 0.8);
+                padding: 10px;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .phone-indicator {
+                background: rgba(255, 193, 7, 0.8);
+                padding: 10px;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            .tiny-indicator {
+                background: rgba(220, 53, 69, 0.8);
+                padding: 10px;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>📱 移动端UI响应式测试</h1>
+        
+        <div class="viewport-info">
+            <h3>当前视窗信息</h3>
+            <p>宽度: <span id="width"></span>px</p>
+            <p>高度: <span id="height"></span>px</p>
+            <p>设备像素比: <span id="dpr"></span></p>
+        </div>
+        
+        <div class="mobile-indicator" style="display: none;">
+            ✅ 平板/手机模式激活 (≤768px)
+        </div>
+        
+        <div class="phone-indicator" style="display: none;">
+            📱 手机模式激活 (≤480px)
+        </div>
+        
+        <div class="tiny-indicator" style="display: none;">
+            📱 极小屏幕模式激活 (≤360px)
+        </div>
+        
+        <div class="screen-sizes">
+            <div class="size-card" data-width="1920">
+                <h4>桌面大屏</h4>
+                <p>1920px+</p>
+                <small>触屏控制隐藏</small>
+            </div>
+            
+            <div class="size-card" data-width="1024">
+                <h4>桌面标准</h4>
+                <p>1024-1919px</p>
+                <small>完整桌面界面</small>
+            </div>
+            
+            <div class="size-card" data-width="768">
+                <h4>平板</h4>
+                <p>769-1023px</p>
+                <small>触屏控制显示</small>
+            </div>
+            
+            <div class="size-card" data-width="480">
+                <h4>手机横屏</h4>
+                <p>481-768px</p>
+                <small>移动端优化</small>
+            </div>
+            
+            <div class="size-card" data-width="360">
+                <h4>手机竖屏</h4>
+                <p>361-480px</p>
+                <small>进一步压缩</small>
+            </div>
+            
+            <div class="size-card" data-width="320">
+                <h4>极小屏幕</h4>
+                <p>≤360px</p>
+                <small>最小化界面</small>
+            </div>
+        </div>
+        
+        <h3>🚀 测试说明</h3>
+        <p>我已经为发射台界面添加了完整的响应式设计，解决了以下手机端UI重叠问题：</p>
+        
+        <div style="text-align: left; max-width: 600px; margin: 0 auto;">
+            <h4>✅ 已解决的问题：</h4>
+            <ul>
+                <li><strong>触屏控制面板重叠：</strong> 调整bottom值避免与底部控制栏重叠</li>
+                <li><strong>侧边面板过宽：</strong> 在移动端将面板宽度调整为50%并设置最大宽度</li>
+                <li><strong>控制按钮过大：</strong> 在小屏幕上缩小按钮和字体尺寸</li>
+                <li><strong>头部栏高度：</strong> 在移动端减小头部栏高度并调整面板位置</li>
+                <li><strong>极小屏幕适配：</strong> 在≤360px时隐藏分级面板和进一步优化布局</li>
+            </ul>
+            
+            <h4>📱 响应式断点：</h4>
+            <ul>
+                <li><strong>1024px+：</strong> 桌面模式，隐藏触屏控制</li>
+                <li><strong>768px以下：</strong> 显示触屏控制，优化面板大小</li>
+                <li><strong>480px以下：</strong> 手机模式，进一步压缩界面</li>
+                <li><strong>360px以下：</strong> 极小屏幕，隐藏分级面板</li>
+            </ul>
+        </div>
+        
+        <a href="launch-pad.html" class="test-link">🚀 测试发射台界面</a>
+        <a href="rocket-builder.html" class="test-link">🔧 测试装配界面</a>
+    </div>
+    
+    <script>
+        function updateViewportInfo() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            
+            document.getElementById('width').textContent = width;
+            document.getElementById('height').textContent = height;
+            document.getElementById('dpr').textContent = dpr;
+            
+            // 更新活跃的屏幕尺寸卡片
+            const cards = document.querySelectorAll('.size-card');
+            cards.forEach(card => card.classList.remove('active'));
+            
+            if (width <= 360) {
+                document.querySelector('[data-width="320"]').classList.add('active');
+            } else if (width <= 480) {
+                document.querySelector('[data-width="360"]').classList.add('active');
+            } else if (width <= 768) {
+                document.querySelector('[data-width="480"]').classList.add('active');
+            } else if (width <= 1023) {
+                document.querySelector('[data-width="768"]').classList.add('active');
+            } else if (width <= 1919) {
+                document.querySelector('[data-width="1024"]').classList.add('active');
+            } else {
+                document.querySelector('[data-width="1920"]').classList.add('active');
+            }
+            
+            // 显示响应式指示器
+            const mobileIndicator = document.querySelector('.mobile-indicator');
+            const phoneIndicator = document.querySelector('.phone-indicator');
+            const tinyIndicator = document.querySelector('.tiny-indicator');
+            
+            mobileIndicator.style.display = width <= 768 ? 'block' : 'none';
+            phoneIndicator.style.display = width <= 480 ? 'block' : 'none';
+            tinyIndicator.style.display = width <= 360 ? 'block' : 'none';
+        }
+        
+        // 初始化和监听窗口变化
+        updateViewportInfo();
+        window.addEventListener('resize', updateViewportInfo);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(updateViewportInfo, 100);
+        });
+    </script>
+</body>
+</html>

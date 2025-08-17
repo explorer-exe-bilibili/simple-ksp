@@ -191,12 +191,7 @@ export default {
             oxidizer: '氧化剂',
             throttle: '推力',
             deltaV: '剩余Delta-V',
-            stage: '级数',
-            totalVelocity: '总速度',
-            orbitalStatus: '轨道状态',
-            distanceFromCenter: '距离地心',
-            suborbital: '亚轨道',
-            orbital: '轨道'
+            stage: '级数'
         },
         controlsHint: {
             title: '操作说明',
@@ -251,21 +246,8 @@ export default {
             landed: '已着陆',
             crashed: '坠毁',
             orbit: '轨道中',
-            takeoff: '重新起飞'
-        },
-        orbital: {
-            achievement: {
-                title: '🎉 入轨成功！',
-                altitude: '轨道高度',
-                velocity: '轨道速度',
-                message: '恭喜！您已成功将火箭送入轨道！'
-            },
-            apoapsis: '远地点',
-            periapsis: '近地点',
-            eccentricity: '偏心率',
-            period: '轨道周期',
-            circularVelocity: '圆轨道速度',
-            escapeVelocity: '逃逸速度'
+            takeoff: '重新起飞',
+            timeAcceleration: '时间加速'
         },
         units: {
             meters: 'm',
@@ -297,6 +279,42 @@ export default {
                 noMoreStages: '没有更多级可分离',
                 notLaunched: '火箭尚未发射'
             }
+        },
+        
+        // 轨道信息
+        orbital: {
+            title: '轨道信息',
+            status: '轨道状态',
+            velocity: '轨道速度',
+            circularVelocity: '圆轨道速度',
+            orbitType: '轨道类型',
+            eccentricity: '离心率',
+            statusTypes: {
+                ascending: '⬆️ 上升中',
+                descending: '⬇️ 下降中',
+                orbit: '🛰️ 轨道中',
+                suborbital: '亚轨道',
+                escape: '逃逸轨道'
+            },
+            orbitTypes: {
+                suborbital: '亚轨道',
+                circular: '圆轨道',
+                elliptical: '椭圆轨道',
+                parabolic: '抛物线轨道',
+                hyperbolic: '双曲线轨道',
+                escape: '逃逸轨道'
+            }
+        },
+        
+        // 控制提示
+        controlsHints: {
+            title: '控制提示',
+            steering: '左右转向',
+            throttleAdjust: '±1% 推力',
+            throttleMinMax: '100%/0% 推力',
+            stage: '分离',
+            mapView: '地图视图',
+            timeAcceleration: '时间加速 ×1/5/10/50/100/1000'
         },
         
         // 分级和火箭详情

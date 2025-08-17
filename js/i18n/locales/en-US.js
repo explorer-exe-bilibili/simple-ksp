@@ -195,12 +195,7 @@ export default {
             oxidizer: 'Oxidizer',
             throttle: 'Throttle',
             deltaV: 'Remaining Delta-V',
-            stage: 'Stage',
-            totalVelocity: 'Total Velocity',
-            orbitalStatus: 'Orbital Status',
-            distanceFromCenter: 'Distance from Center',
-            suborbital: 'Suborbital',
-            orbital: 'Orbital'
+            stage: 'Stage'
         },
         controlsHint: {
             title: 'Controls',
@@ -255,21 +250,8 @@ export default {
             landed: 'Landed',
             crashed: 'Crashed',
             orbit: 'In Orbit',
-            takeoff: 'Taking Off'
-        },
-        orbital: {
-            achievement: {
-                title: '🎉 Orbit Achieved!',
-                altitude: 'Orbital Altitude',
-                velocity: 'Orbital Velocity',
-                message: 'Congratulations! You have successfully achieved orbit!'
-            },
-            apoapsis: 'Apoapsis',
-            periapsis: 'Periapsis',
-            eccentricity: 'Eccentricity',
-            period: 'Orbital Period',
-            circularVelocity: 'Circular Velocity',
-            escapeVelocity: 'Escape Velocity'
+            takeoff: 'Taking Off',
+            timeAcceleration: 'Time Acceleration'
         },
         units: {
             meters: 'm',
@@ -301,6 +283,42 @@ export default {
                 noMoreStages: 'No more stages to separate',
                 notLaunched: 'Rocket has not launched yet'
             }
+        },
+        
+        // Orbital information
+        orbital: {
+            title: 'Orbital Info',
+            status: 'Orbit Status',
+            velocity: 'Orbital Velocity',
+            circularVelocity: 'Circular Velocity',
+            orbitType: 'Orbit Type',
+            eccentricity: 'Eccentricity',
+            statusTypes: {
+                ascending: '⬆️ Ascending',
+                descending: '⬇️ Descending',
+                orbit: '🛰️ In Orbit',
+                suborbital: 'Suborbital',
+                escape: 'Escape Trajectory'
+            },
+            orbitTypes: {
+                suborbital: 'Suborbital',
+                circular: 'Circular',
+                elliptical: 'Elliptical',
+                parabolic: 'Parabolic',
+                hyperbolic: 'Hyperbolic',
+                escape: 'Escape'
+            }
+        },
+        
+        // Control hints
+        controlsHints: {
+            title: 'Controls',
+            steering: 'Left/Right Turn',
+            throttleAdjust: '±1% Throttle',
+            throttleMinMax: '100%/0% Throttle',
+            stage: 'Stage',
+            mapView: 'Map View',
+            timeAcceleration: 'Time Acceleration ×1/5/10/50/100/1000'
         },
         
         // Staging and rocket details

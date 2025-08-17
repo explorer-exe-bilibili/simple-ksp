@@ -86,70 +86,59 @@
                 <span class="data-value" id="deltaV">0 m/s</span>
             </div>
             
-            <!-- 轨道数据 -->
+            <!-- 轨道信息 -->
             <div class="data-separator"></div>
             <div class="orbital-section">
+                <div class="section-title" data-i18n="launchPad.orbital.title">轨道信息</div>
                 <div class="data-item">
-                    <span class="data-label" data-i18n="launchPad.flightData.totalVelocity">总速度</span>
-                    <span class="data-value" id="totalVelocity">0 m/s</span>
+                    <span class="data-label" data-i18n="launchPad.orbital.status">轨道状态</span>
+                    <span class="data-value" id="orbitStatus" data-i18n="launchPad.orbital.statusTypes.ascending">⬆️ 上升中</span>
                 </div>
                 <div class="data-item">
-                    <span class="data-label" data-i18n="launchPad.flightData.orbitalStatus">轨道状态</span>
-                    <span class="data-value orbital-status" id="orbitalStatus" data-i18n="launchPad.flightData.suborbital">亚轨道</span>
+                    <span class="data-label" data-i18n="launchPad.orbital.velocity">轨道速度</span>
+                    <span class="data-value" id="orbitalVelocity">0.00 km/s</span>
                 </div>
                 <div class="data-item">
-                    <span class="data-label" data-i18n="launchPad.flightData.distanceFromCenter">距地心距离</span>
-                    <span class="data-value" id="distanceFromCenter">6371 km</span>
+                    <span class="data-label" data-i18n="launchPad.orbital.circularVelocity">圆轨道速度</span>
+                    <span class="data-value" id="circularVelocity">0.00 km/s</span>
                 </div>
-                
-                <!-- 详细轨道参数 -->
-                <div class="orbital-details" id="orbitalDetails" style="display: none;">
-                    <div class="data-item">
-                        <span class="data-label" data-i18n="launchPad.orbital.apoapsis">远地点</span>
-                        <span class="data-value" id="apoapsis">- km</span>
-                    </div>
-                    <div class="data-item">
-                        <span class="data-label" data-i18n="launchPad.orbital.periapsis">近地点</span>
-                        <span class="data-value" id="periapsis">- km</span>
-                    </div>
-                    <div class="data-item">
-                        <span class="data-label" data-i18n="launchPad.orbital.eccentricity">偏心率</span>
-                        <span class="data-value" id="eccentricity">-</span>
-                    </div>
-                    <div class="data-item">
-                        <span class="data-label" data-i18n="launchPad.orbital.period">轨道周期</span>
-                        <span class="data-value" id="orbitalPeriod">-</span>
-                    </div>
-                    <div class="data-item">
-                        <span class="data-label" data-i18n="launchPad.orbital.circularVelocity">圆轨道速度</span>
-                        <span class="data-value" id="circularVelocity">- m/s</span>
-                    </div>
-                    <div class="data-item">
-                        <span class="data-label" data-i18n="launchPad.orbital.escapeVelocity">逃逸速度</span>
-                        <span class="data-value" id="escapeVelocity">- m/s</span>
-                    </div>
+                <div class="data-item">
+                    <span class="data-label" data-i18n="launchPad.orbital.orbitType">轨道类型</span>
+                    <span class="data-value" id="orbitType" data-i18n="launchPad.orbital.orbitTypes.suborbital">亚轨道</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label" data-i18n="launchPad.orbital.eccentricity">离心率</span>
+                    <span class="data-value" id="eccentricity">0.000</span>
                 </div>
             </div>
             
             <!-- 操作说明 -->
             <div class="data-separator"></div>
             <div class="controls-hint">
-                <div class="hint-title" data-i18n="launchPad.controlsHint.title">操作说明</div>
+                <div class="hint-title" data-i18n="launchPad.controlsHints.title">控制提示</div>
                 <div class="hint-item">
                     <span class="hint-keys">A/D</span>
-                    <span class="hint-desc" data-i18n="launchPad.controlsHint.steering">左右转向</span>
+                    <span class="hint-desc" data-i18n="launchPad.controlsHints.steering">左右转向</span>
                 </div>
                 <div class="hint-item">
                     <span class="hint-keys">Shift/Ctrl</span>
-                    <span class="hint-desc" data-i18n="launchPad.controlsHint.throttleAdjust">±1% 推力</span>
+                    <span class="hint-desc" data-i18n="launchPad.controlsHints.throttleAdjust">±1% 推力</span>
                 </div>
                 <div class="hint-item">
                     <span class="hint-keys">Z/X</span>
-                    <span class="hint-desc" data-i18n="launchPad.controlsHint.throttleMinMax">100%/0% 推力</span>
+                    <span class="hint-desc" data-i18n="launchPad.controlsHints.throttleMinMax">100%/0% 推力</span>
                 </div>
                 <div class="hint-item">
                     <span class="hint-keys">Space</span>
-                    <span class="hint-desc" data-i18n="launchPad.controlsHint.stage">分离</span>
+                    <span class="hint-desc" data-i18n="launchPad.controlsHints.stage">分离</span>
+                </div>
+                <div class="hint-item">
+                    <span class="hint-keys">M</span>
+                    <span class="hint-desc" data-i18n="launchPad.controlsHints.mapView">地图视图</span>
+                </div>
+                <div class="hint-item">
+                    <span class="hint-keys">1/2/3/4/5/6</span>
+                    <span class="hint-desc" data-i18n="launchPad.controlsHints.timeAcceleration">时间加速 ×1/5/10/50/100/1000</span>
                 </div>
             </div>
         </div>
@@ -171,6 +160,12 @@
                 <div class="countdown-number" id="countdownNumber"></div>
             </div>
             
+            <!-- 时间加速显示 -->
+            <div class="time-acceleration-display">
+                <div class="time-accel-label" data-i18n="launchPad.status.timeAcceleration">时间加速</div>
+                <div class="time-accel-value" id="timeAccelValue">×1</div>
+            </div>
+            
             <div class="control-buttons-new">
                 <!-- 转向导航条 -->
                 <div class="control-navigation">
@@ -178,14 +173,12 @@
                         <div class="nav-bar">
                             <div class="nav-center"></div>
                             <div class="nav-pointer" id="navPointer"></div>
-                            <div class="nav-guidance" id="navGuidance"></div>
                         </div>
                         <div class="nav-labels">
-                            <span class="nav-label left">-45°</span>
-                            <span class="nav-label center">0°</span>
-                            <span class="nav-label right">+45°</span>
+                            <span class="nav-label left">L</span>
+                            <span class="nav-label center">^</span>
+                            <span class="nav-label right">R</span>
                         </div>
-                        <div class="nav-hint" id="navHint"></div>
                     </div>
                 </div>
                 
