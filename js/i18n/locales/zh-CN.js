@@ -182,16 +182,10 @@ export default {
         flightData: {
             title: '飞行数据',
             altitude: '高度',
-            velocity: '垂直速度',
-            horizontalVelocity: '水平速度',
-            horizontalPosition: '水平位置',
-            acceleration: '加速度',
+            totalVelocity: '总速度',
             mass: '质量',
             fuel: '液体燃料',
-            oxidizer: '氧化剂',
-            throttle: '推力',
-            deltaV: '剩余Delta-V',
-            stage: '级数'
+            throttle: '推力'
         },
         controlsHint: {
             title: '操作说明',
@@ -209,7 +203,10 @@ export default {
             throttleUp: '增加推力',
             throttleDown: '减少推力',
             sas: '姿态稳定系统',
-            rcs: '反应控制系统'
+            rcs: '反应控制系统',
+            turnLeft: '左转',
+            turnRight: '右转',
+            timeAcceleration: '时间加速'
         },
         throttle: {
             title: '推力控制',
@@ -284,9 +281,10 @@ export default {
         // 轨道信息
         orbital: {
             title: '轨道信息',
+            gravitySouce: '引力源',
             status: '轨道状态',
-            velocity: '轨道速度',
-            circularVelocity: '圆轨道速度',
+            periapsis: '近地点',
+            apoapsis: '远地点',
             orbitType: '轨道类型',
             eccentricity: '离心率',
             statusTypes: {

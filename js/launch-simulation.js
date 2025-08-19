@@ -24,9 +24,44 @@ class LaunchSimulation {
         this.crossSectionArea = 1.0; // 横截面积（平方米）
         
         // 地球参数（球体模型）
-        this.earthRadius = 6371000; // 地球半径 (米)
+        this.earthRadius = 6371000; // 地球半径 (m)
         this.earthMass = 5.972e24;  // 地球质量 (kg)
         this.gravitationalConstant = 6.674e-11; // 万有引力常数 (m³/kg/s²)
+        
+        // 天体系统
+        this.celestialBodies = {
+            earth: {
+                name: 'Earth',
+                mass: 5.972e24,
+                radius: 6371000,
+                gravitationalParameter: 3.986e14, // GM值
+                influenceRadius: 66200000, // 地球引力影响范围 (约66,200 km)
+                x: 0,
+                y: 0
+            },
+            moon: {
+                name: 'Moon',
+                mass: 7.342e22,
+                radius: 1737400,
+                gravitationalParameter: 4.904e12, // GM值
+                influenceRadius: 12000000, // 月球引力影响范围 (约12,000 km)
+                orbitalRadius: 384400000, // 月球轨道半径
+                orbitalPeriod: 2360584,   // 轨道周期 (秒)
+                currentAngle: 0,          // 当前轨道角度
+                x: 384400000,             // 当前位置
+                y: 0,
+                angularVelocity: 2 * Math.PI / 2360584
+            }
+        };
+        
+        // 当前主要引力来源
+        this.currentGravitySource = 'earth';
+        
+        console.log('天体系统已初始化:', {
+            地球引力范围: this.celestialBodies.earth.influenceRadius / 1000 + ' km',
+            月球引力范围: this.celestialBodies.moon.influenceRadius / 1000 + ' km',
+            月球轨道半径: this.celestialBodies.moon.orbitalRadius / 1000 + ' km'
+        });
         
         // 球坐标系统（相对于地心）
         this.radialDistance = this.earthRadius; // 距离地心的距离（初始为地球半径）
@@ -41,6 +76,7 @@ class LaunchSimulation {
         this.simulationTimer = null;
         this.lastDebugTime = 0;     // 调试输出时间控制
         this.lastFuelDebugTime = 0; // 燃料调试输出时间控制
+        this.lastDistanceOutputTime = 0; // 距离输出时间控制
         
         // 节流阀控制
         this.throttle = 1.0;        // 节流阀设置 (0.0-1.0)
@@ -59,6 +95,57 @@ class LaunchSimulation {
         this.orbitalData = null;
         
         this.initializeStages();
+    }
+
+    // 更新月球位置
+    updateMoonPosition(deltaTime) {
+        const moon = this.celestialBodies.moon;
+        
+        // 更新月球轨道角度
+        moon.currentAngle += moon.angularVelocity * deltaTime;
+        
+        // 计算月球位置（以地球为中心的圆形轨道）
+        moon.x = moon.orbitalRadius * Math.cos(moon.currentAngle);
+        moon.y = moon.orbitalRadius * Math.sin(moon.currentAngle);
+    }
+    
+    // 计算到指定天体的距离
+    getDistanceToCelestialBody(bodyName) {
+        const body = this.celestialBodies[bodyName];
+        if (!body) return Infinity;
+        
+        // 火箭的绝对位置（以地球中心为原点）
+        const rocketX = this.horizontalPosition;
+        const rocketY = this.altitude + this.earthRadius;
+        
+        // 计算距离
+        const dx = rocketX - body.x;
+        const dy = rocketY - body.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    // 确定当前主要引力来源
+    determineCurrentGravitySource() {
+        const distanceToEarth = this.getDistanceToCelestialBody('earth');
+        const distanceToMoon = this.getDistanceToCelestialBody('moon');
+        
+        // 检查是否在月球引力范围内
+        if (distanceToMoon <= this.celestialBodies.moon.influenceRadius) {
+            if (this.currentGravitySource !== 'moon') {
+                console.log('进入月球引力范围');
+                this.currentGravitySource = 'moon';
+            }
+        }
+        // 检查是否在地球引力范围内
+        else if (distanceToEarth <= this.celestialBodies.earth.influenceRadius) {
+            if (this.currentGravitySource !== 'earth') {
+                console.log('进入地球引力范围');
+                this.currentGravitySource = 'earth';
+            }
+        }
+        // 如果都不在范围内，保持当前引力源
+        
+        return this.currentGravitySource;
     }
 
     // 初始化分级信息
@@ -220,6 +307,20 @@ class LaunchSimulation {
 
     // 更新物理状态（球形地球模型）
     updatePhysics() {
+        // 更新月球位置
+        this.updateMoonPosition(this.deltaTime);
+        
+        // 每秒输出一次飞船与地球和月球的距离
+        const currentTime = Date.now();
+        if (currentTime - this.lastDistanceOutputTime >= 1000) { // 1000ms = 1秒
+            const distanceToEarth = this.getDistanceToCelestialBody('earth');
+            const distanceToMoon = this.getDistanceToCelestialBody('moon');
+            
+            console.log(`距离信息 - 地球: ${(distanceToEarth / 1000).toFixed(1)} km, 月球: ${(distanceToMoon / 1000).toFixed(1)} km, 引力源: ${this.currentGravitySource}`);
+            
+            this.lastDistanceOutputTime = currentTime;
+        }
+        
         // 更新球坐标系统
         this.updateSphericalCoordinates();
         
@@ -354,7 +455,7 @@ class LaunchSimulation {
             part.data.type === 'engine' && !this.separatedPartIds.has(part.id)
         );
         
-        console.log(`当前级引擎数量: ${activeEngines.length}, 已分离部件: ${this.separatedPartIds.size}`);
+        // console.log(`当前级引擎数量: ${activeEngines.length}, 已分离部件: ${this.separatedPartIds.size}`);
         
         let totalThrust = 0;
         activeEngines.forEach(engine => {
@@ -372,22 +473,57 @@ class LaunchSimulation {
                     // 应用节流阀设置
                     const throttledThrust = currentThrust * this.throttle;
                     totalThrust += throttledThrust;
-                    console.log(`引擎 ${engine.data.name} (ID: ${engine.id}) 推力: ${throttledThrust.toFixed(1)} kN (${Math.round(this.throttle * 100)}%)`);
+                    // console.log(`引擎 ${engine.data.name} (ID: ${engine.id}) 推力: ${throttledThrust.toFixed(1)} kN (${Math.round(this.throttle * 100)}%)`);
                 } else {
-                    console.log(`引擎 ${engine.data.name} (ID: ${engine.id}) 排气被阻挡，无推力输出`);
+                    // console.log(`引擎 ${engine.data.name} (ID: ${engine.id}) 排气被阻挡，无推力输出`);
                 }
             }
         });
         
-        console.log(`总推力: ${totalThrust.toFixed(1)} kN`);
+        // console.log(`总推力: ${totalThrust.toFixed(1)} kN`);
         return totalThrust * 1000; // 转换为牛顿
     }
     
-    // 计算球形地球的重力加速度
+    // 计算当前位置的重力加速度（多天体系统）
     calculateGravityAtAltitude(altitude) {
-        // 使用万有引力定律：g = GM/r²
+        // 确定当前主要引力来源
+        const gravitySource = this.determineCurrentGravitySource();
+        const body = this.celestialBodies[gravitySource];
+        
+        if (gravitySource === 'earth') {
+            // 地球重力：使用标准公式
+            const r = this.earthRadius + altitude;
+            return body.gravitationalParameter / (r * r);
+        } else if (gravitySource === 'moon') {
+            // 月球重力：计算到月球中心的距离
+            const distanceToMoon = this.getDistanceToCelestialBody('moon');
+            
+            // 避免除零错误
+            if (distanceToMoon < body.radius) {
+                return body.gravitationalParameter / (body.radius * body.radius);
+            }
+            
+            return body.gravitationalParameter / (distanceToMoon * distanceToMoon);
+        }
+        
+        // 默认返回地球重力
         const r = this.earthRadius + altitude;
-        return (this.gravitationalConstant * this.earthMass) / (r * r);
+        return this.celestialBodies.earth.gravitationalParameter / (r * r);
+    }
+    
+    // 获取当前引力天体信息
+    getCurrentGravityBodyInfo() {
+        const body = this.celestialBodies[this.currentGravitySource];
+        const distance = this.getDistanceToCelestialBody(this.currentGravitySource);
+        
+        return {
+            name: body.name,
+            distance: distance,
+            altitude: this.currentGravitySource === 'earth' ? 
+                distance - this.earthRadius : 
+                distance - body.radius,
+            surfaceGravity: body.gravitationalParameter / (body.radius * body.radius)
+        };
     }
     
     // 更新球坐标系统
@@ -509,7 +645,7 @@ class LaunchSimulation {
             });
         }
         
-        console.log(`当前级燃料消耗 (${Math.round(throttleMultiplier * 100)}% 节流阀): 液体燃料-${(consumption.liquid_fuel * this.baseDeltaTime * throttleMultiplier).toFixed(2)}, 氧化剂-${(consumption.oxidizer * this.baseDeltaTime * throttleMultiplier).toFixed(2)}`);
+        // console.log(`当前级燃料消耗 (${Math.round(throttleMultiplier * 100)}% 节流阀): 液体燃料-${(consumption.liquid_fuel * this.baseDeltaTime * throttleMultiplier).toFixed(2)}, 氧化剂-${(consumption.oxidizer * this.baseDeltaTime * throttleMultiplier).toFixed(2)}`);
     }
 
     // 检查分级条件
@@ -662,7 +798,7 @@ class LaunchSimulation {
                     liquid_fuel: tank.data.fuel_capacity.liquid_fuel || 0,
                     oxidizer: tank.data.fuel_capacity.oxidizer || 0
                 };
-                console.log(`燃料罐 ${tank.data.name} 燃料重置: 液体燃料=${tank.fuelStatus.liquid_fuel}, 氧化剂=${tank.fuelStatus.oxidizer}`);
+                // console.log(`燃料罐 ${tank.data.name} 燃料重置: 液体燃料=${tank.fuelStatus.liquid_fuel}, 氧化剂=${tank.fuelStatus.oxidizer}`);
             }
         });
         
@@ -673,7 +809,7 @@ class LaunchSimulation {
                     liquid_fuel: engine.data.fuel_capacity.liquid_fuel || 0,
                     oxidizer: engine.data.fuel_capacity.oxidizer || 0
                 };
-                console.log(`引擎 ${engine.data.name} 燃料重置: 液体燃料=${engine.fuelStatus.liquid_fuel}, 氧化剂=${engine.fuelStatus.oxidizer}`);
+                // console.log(`引擎 ${engine.data.name} 燃料重置: 液体燃料=${engine.fuelStatus.liquid_fuel}, 氧化剂=${engine.fuelStatus.oxidizer}`);
             }
         });
     }
@@ -682,10 +818,6 @@ class LaunchSimulation {
     updateDisplay() {
         // 更新基础飞行数据
         document.getElementById('altitude').textContent = `${Math.round(this.altitude)} m`;
-        document.getElementById('velocity').textContent = `${Math.round(this.velocity)} m/s`;
-        document.getElementById('horizontalVelocity').textContent = `${Math.round(this.horizontalVelocity)} m/s`;
-        document.getElementById('horizontalPosition').textContent = `${Math.round(this.horizontalPosition)} m`;
-        document.getElementById('acceleration').textContent = `${this.acceleration.toFixed(1)} m/s²`;
         document.getElementById('mass').textContent = `${this.mass.toFixed(2)} t`;
         
         // 更新水平数据
@@ -703,10 +835,6 @@ class LaunchSimulation {
         const currentGravity = this.calculateGravityAtAltitude(this.altitude);
         const twr = this.mass > 0 ? (thrust / (this.mass * currentGravity)) : 0;
         document.getElementById('twr').textContent = twr.toFixed(2);
-        
-        // 计算剩余Delta-V
-        const remainingDeltaV = this.calculateRemainingDeltaV();
-        document.getElementById('deltaV').textContent = `${Math.round(remainingDeltaV)} m/s`;
         
         // 更新轨道信息显示
         this.updateOrbitalDisplay();
@@ -864,7 +992,7 @@ class LaunchSimulation {
         const allEngines = this.assembly.parts.filter(part => part.data.type === 'engine');
         const activeEngines = allEngines.filter(engine => !this.separatedPartIds.has(engine.id));
         
-        console.log(`更新视觉效果: 总引擎数量 ${allEngines.length}, 当前级引擎数量 ${activeEngines.length}, 已分离部件 ${this.separatedPartIds.size}`);
+        // console.log(`更新视觉效果: 总引擎数量 ${allEngines.length}, 当前级引擎数量 ${activeEngines.length}, 已分离部件 ${this.separatedPartIds.size}`);
         
         // 首先关闭所有引擎火焰
         allEngines.forEach(engine => {
@@ -886,7 +1014,7 @@ class LaunchSimulation {
                 const hasThrottle = this.throttle > 0;
                 const hasBlockedExhaust = this.isEngineExhaustBlocked(engine);
                 
-                console.log(`引擎 ${engine.data.name} (ID: ${engine.id}): 燃料=${hasEnoughFuel}, 节流阀=${hasThrottle}, 排气阻挡=${hasBlockedExhaust}, 火焰显示=${hasEnoughFuel && hasThrottle && !hasBlockedExhaust}`);
+                // console.log(`引擎 ${engine.data.name} (ID: ${engine.id}): 燃料=${hasEnoughFuel}, 节流阀=${hasThrottle}, 排气阻挡=${hasBlockedExhaust}, 火焰显示=${hasEnoughFuel && hasThrottle && !hasBlockedExhaust}`);
                 
                 if (hasEnoughFuel && hasThrottle && !hasBlockedExhaust) {
                     flameElement.classList.add('active');
@@ -919,7 +1047,7 @@ class LaunchSimulation {
             if (!this.separatedPartIds.has(connectedPartId)) {
                 const connectedPart = this.assembly.parts.find(p => p.id === connectedPartId);
                 if (connectedPart) {
-                    console.log(`引擎 ${engine.data.name} 的排气被组件 ${connectedPart.data.name} 阻挡`);
+                    // console.log(`引擎 ${engine.data.name} 的排气被组件 ${connectedPart.data.name} 阻挡`);
                     return true;
                 }
             }
@@ -1043,7 +1171,7 @@ class LaunchSimulation {
         }
         
         if (!engine.fuelStatus) {
-            console.log(`引擎 ${engine.data.name} 没有燃料状态，检查活跃燃料罐`);
+            // console.log(`引擎 ${engine.data.name} 没有燃料状态，检查活跃燃料罐`);
             // 只检查未分离的燃料罐的燃料总量
             const activeFuelTanks = this.assembly.parts.filter(p => 
                 p.data.fuel_capacity && !this.separatedPartIds.has(p.id)
@@ -1064,7 +1192,7 @@ class LaunchSimulation {
                 const hasEnoughLiquid = !consumption.liquid_fuel || totalLiquidFuel > 0;
                 const hasEnoughOxidizer = !consumption.oxidizer || totalOxidizer > 0;
                 
-                console.log(`活跃燃料罐检查: 液体燃料=${totalLiquidFuel.toFixed(1)}, 氧化剂=${totalOxidizer.toFixed(1)}`);
+                // console.log(`活跃燃料罐检查: 液体燃料=${totalLiquidFuel.toFixed(1)}, 氧化剂=${totalOxidizer.toFixed(1)}`);
                 return hasEnoughLiquid && hasEnoughOxidizer;
             }
             return false;
@@ -1077,23 +1205,9 @@ class LaunchSimulation {
                            (engine.fuelStatus.oxidizer > 0);
         
         const hasFuel = hasLiquidFuel && hasOxidizer;
-        console.log(`引擎 ${engine.data.name} 燃料检查: 液体燃料=${engine.fuelStatus.liquid_fuel}, 氧化剂=${engine.fuelStatus.oxidizer}, 有燃料=${hasFuel}`);
+        // console.log(`引擎 ${engine.data.name} 燃料检查: 液体燃料=${engine.fuelStatus.liquid_fuel}, 氧化剂=${engine.fuelStatus.oxidizer}, 有燃料=${hasFuel}`);
         
         return hasFuel;
-    }
-
-    // 计算剩余Delta-V
-    calculateRemainingDeltaV() {
-        let totalDeltaV = 0;
-        
-        for (let i = this.currentStage; i < this.stages.length; i++) {
-            const stage = this.stages[i];
-            if (stage && stage.deltaV) {
-                totalDeltaV += stage.deltaV;
-            }
-        }
-        
-        return totalDeltaV;
     }
 
     // 处理着陆
@@ -1301,6 +1415,15 @@ class LaunchSimulation {
     setSteering(angle) {
         this.steeringAngle = angle; // 移除角度限制
         console.log(`转向角度设置为: ${this.steeringAngle.toFixed(1)}°`);
+        
+        // 更新导航条显示
+        this.updateSteeringDisplay();
+    }
+    
+    // 调整转向角度（相对变化）
+    adjustSteering(delta) {
+        this.steeringAngle += delta;
+        console.log(`转向角度调整: ${delta.toFixed(2)}°, 当前角度: ${this.steeringAngle.toFixed(1)}°`);
         
         // 更新导航条显示
         this.updateSteeringDisplay();

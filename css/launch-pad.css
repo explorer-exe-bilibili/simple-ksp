@@ -625,6 +625,26 @@
     z-index: 1000;
     padding: 20px;
     box-sizing: border-box;
+    /* 确保触摸事件能正常传递给子元素 */
+    pointer-events: auto;
+    touch-action: manipulation;
+}
+
+/* 通用触屏优化 */
+.touch-control-btn,
+.time-control-btn,
+.map-control-btn {
+    /* 防止触摸时的默认行为 */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* 防止触摸时的高亮效果 */
+    -webkit-tap-highlight-color: transparent;
+    /* 确保触摸事件正确处理 */
+    touch-action: manipulation;
 }
 
 /* 右上角控制按钮组 */
@@ -634,9 +654,9 @@
     right: 20px;
     z-index: 1001;
     display: none; /* 默认隐藏 */
-    flex-direction: row;
-    gap: 12px;
-    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
 }
 
 .touch-control-buttons.active {
@@ -644,10 +664,10 @@
 }
 
 .touch-control-btn {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
+    border-radius: 15px;
     background: rgba(0, 0, 0, 0.7);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
@@ -656,11 +676,18 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     transition: all 0.3s ease;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     touch-action: manipulation;
     -webkit-user-select: none;
     user-select: none;
+    padding: 4px;
+    /* 确保触摸区域足够大 */
+    min-width: 44px;
+    min-height: 44px;
+    /* 防止触摸时的高亮效果 */
+    -webkit-tap-highlight-color: transparent;
 }
 
 .touch-control-btn:hover {
@@ -674,8 +701,131 @@
 }
 
 .touch-control-btn .touch-btn-icon {
-    font-size: 24px;
+    font-size: 20px;
     line-height: 1;
+    margin-bottom: 2px;
+}
+
+.touch-control-btn .touch-btn-label {
+    font-size: 10px;
+    line-height: 1;
+    text-align: center;
+    opacity: 0.8;
+}
+
+/* 左侧时间加速控制 */
+.touch-time-controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1001;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.touch-time-controls.active {
+    display: flex;
+}
+
+.time-control-title {
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 4px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.time-control-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.time-control-btn {
+    width: 50px;
+    height: 35px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    font-size: 11px;
+    font-weight: bold;
+    /* 确保触摸区域足够大 */
+    min-width: 44px;
+    min-height: 32px;
+    /* 防止触摸时的高亮效果 */
+    -webkit-tap-highlight-color: transparent;
+}
+
+.time-control-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.time-control-btn:active,
+.time-control-btn.active {
+    background: rgba(76, 175, 80, 0.8);
+    border-color: #4CAF50;
+    color: white;
+}
+
+/* 地图控制按钮 */
+.map-controls {
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    z-index: 1002;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+}
+
+.map-control-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    font-size: 14px;
+}
+
+.map-control-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.05);
+}
+
+.map-control-btn:active {
+    transform: scale(0.95);
 }
 
 /* 发射按钮特殊样式 */
@@ -741,51 +891,82 @@
     align-items: center;
 }
 
-.touch-steering-pad {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    background: transparent; /* 设置为透明背景 */
-    border: 2px solid rgba(135, 206, 235, 0.3); /* 降低边框透明度 */
-    border-radius: 50%;
+/* 触摸转向按钮区域 */
+.touch-steering-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
     margin: 10px 0;
-    touch-action: none;
+}
+
+.touch-steering-btn {
+    width: 80px;
+    height: 80px;
+    border: 2px solid rgba(135, 206, 235, 0.3);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
     -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
     user-select: none;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    /* 确保触摸区域足够大 */
+    min-width: 60px;
+    min-height: 60px;
 }
 
-.touch-steering-center {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 6px;
-    height: 6px;
-    background: rgba(135, 206, 235, 0.8); /* 使用蓝色调，提高可见度 */
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    border-radius: 50%;
-    box-shadow: 0 0 4px rgba(135, 206, 235, 0.5);
+.touch-steering-btn .touch-btn-icon {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 4px;
+    line-height: 1;
 }
 
-.touch-steering-indicator {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 20px;
-    height: 20px;
-    background: rgba(255, 107, 53, 0.9); /* 更鲜明的橙色 */
-    border: 2px solid rgba(255, 255, 255, 0.9);
-    border-radius: 50%;
-    transition: all 0.1s ease;
-    box-shadow: 0 2px 6px rgba(255, 107, 53, 0.4);
-    cursor: grab;
+.touch-steering-btn .touch-btn-label {
+    font-size: 11px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 1;
 }
 
-.touch-steering-indicator:active {
-    cursor: grabbing;
-    transform: translate(-50%, -50%) scale(1.1);
-    box-shadow: 0 3px 8px rgba(255, 107, 53, 0.6);
+.touch-steering-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(135, 206, 235, 0.6);
+}
+
+.touch-steering-btn:active,
+.touch-steering-btn.active {
+    background: rgba(135, 206, 235, 0.8);
+    border-color: #87CEEB;
+    color: white;
+    transform: scale(0.95);
+}
+
+.touch-left-btn:active,
+.touch-left-btn.active {
+    background: rgba(255, 152, 0, 0.8); /* 橙色 - 左转 */
+    border-color: #FF9800;
+}
+
+.touch-right-btn:active,
+.touch-right-btn.active {
+    background: rgba(76, 175, 80, 0.8); /* 绿色 - 右转 */
+    border-color: #4CAF50;
 }
 
 .touch-angle-display {
@@ -920,6 +1101,11 @@
     .touch-control-panel {
         display: none !important;
     }
+    
+    /* 确保桌面端隐藏移动端专用元素 */
+    .mobile-only {
+        display: none !important;
+    }
 }
 
 /* 移动端响应式设计 */
@@ -974,10 +1160,23 @@
         padding: 8px;
     }
     
-    .touch-steering-pad {
-        width: 80px;
-        height: 80px;
-        border: 2px solid rgba(135, 206, 235, 0.2); /* 移动端进一步降低透明度 */
+    /* 触屏转向按钮移动端调整 */
+    .touch-steering-buttons {
+        gap: 10px;
+    }
+    
+    .touch-steering-btn {
+        width: 65px;
+        height: 65px;
+        border-radius: 10px;
+    }
+    
+    .touch-steering-btn .touch-btn-icon {
+        font-size: 20px;
+    }
+    
+    .touch-steering-btn .touch-btn-label {
+        font-size: 10px;
     }
     
     .touch-throttle-slider {
@@ -2038,6 +2237,7 @@
     border-radius: 10px;
     font-family: 'Courier New', monospace;
     font-size: 14px;
+    -webkit-backdrop-filter: blur(5px);
     backdrop-filter: blur(5px);
 }
 
@@ -2078,6 +2278,7 @@
     display: none;
     justify-content: center;
     align-items: center;
+    -webkit-backdrop-filter: blur(3px);
     backdrop-filter: blur(3px);
 }
 
@@ -2150,6 +2351,27 @@
     border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
+/* 轨道标记样式 */
+.orbit-marker {
+    cursor: pointer;
+    transition: r 0.2s ease, opacity 0.2s ease;
+}
+
+.orbit-marker:hover {
+    r: 5;
+    opacity: 0.8;
+}
+
+/* 近地点标记 */
+.orbit-marker[fill="#FF6B6B"] {
+    filter: drop-shadow(0 0 3px #FF6B6B);
+}
+
+/* 远地点标记 */
+.orbit-marker[fill="#4ECDC4"] {
+    filter: drop-shadow(0 0 3px #4ECDC4);
+}
+
 .map-info {
     padding: 15px 20px;
     background: rgba(0, 0, 0, 0.3);
@@ -2181,7 +2403,7 @@
     font-style: italic;
 }
 
-/* 时间加速显示 */
+/* 时间加速显示 (仅桌面端) */
 .time-acceleration-display {
     position: absolute;
     top: 20px;
@@ -2194,8 +2416,8 @@
     font-family: 'Courier New', monospace;
     text-align: center;
     min-width: 80px;
-    backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
 }
 
 .time-accel-label {
@@ -2208,4 +2430,187 @@
     font-size: 16px;
     font-weight: bold;
     color: #4CAF50;
+}
+
+/* 桌面端专用元素 */
+.desktop-only {
+    display: block;
+}
+
+/* 移动端专用元素 */
+.mobile-only {
+    display: none;
+}
+
+/* 响应式设计 - 移动设备 */
+@media (max-width: 768px) {
+    /* 隐藏桌面端专用元素 */
+    .desktop-only {
+        display: none !important;
+    }
+    
+    /* 显示移动端专用元素 */
+    .mobile-only {
+        display: flex !important;
+    }
+    
+    /* 默认显示触屏控制 */
+    .touch-control-buttons,
+    .touch-time-controls {
+        display: flex !important;
+    }
+    
+    /* 调整触屏按钮大小 */
+    .touch-control-btn {
+        width: 55px;
+        height: 55px;
+    }
+    
+    .time-control-btn {
+        width: 45px;
+        height: 32px;
+        font-size: 10px;
+    }
+    
+    /* 调整位置避免遮挡 */
+    .touch-control-buttons {
+        top: 15px;
+        right: 15px;
+        gap: 6px;
+    }
+    
+    .touch-time-controls {
+        top: 15px;
+        left: 15px;
+        gap: 6px;
+    }
+    
+    /* 地图区域适配 */
+    .orbital-map-container {
+        height: 60vh;
+        min-height: 300px;
+    }
+    
+    /* 信息面板适配 */
+    .info-panel {
+        font-size: 12px;
+        padding: 8px;
+    }
+    
+    .info-item {
+        margin-bottom: 4px;
+    }
+    
+    .info-value {
+        font-size: 11px;
+    }
+    
+    /* 隐藏桌面端控制提示 */
+    .controls-hint {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    /* 小屏幕进一步调整 */
+    .touch-control-btn {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .touch-control-btn .touch-btn-icon {
+        font-size: 18px;
+    }
+    
+    .touch-control-btn .touch-btn-label {
+        font-size: 9px;
+    }
+    
+    .time-control-btn {
+        width: 40px;
+        height: 30px;
+        font-size: 9px;
+    }
+    
+    /* 更紧凑的布局 */
+    .touch-control-buttons,
+    .touch-time-controls {
+        gap: 4px;
+    }
+    
+    .touch-control-buttons {
+        top: 10px;
+        right: 10px;
+    }
+    
+    .touch-time-controls {
+        top: 10px;
+        left: 10px;
+    }
+    
+    /* 地图信息文字更小 */
+    .map-info {
+        padding: 10px 15px;
+    }
+    
+    .map-data span {
+        font-size: 10px;
+    }
+    
+    .map-hint {
+        font-size: 9px;
+    }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+    /* 确保触摸设备显示触屏控制 */
+    .touch-control-buttons,
+    .touch-time-controls {
+        display: flex !important;
+    }
+    
+    /* 增加触摸区域 */
+    .touch-control-btn,
+    .time-control-btn,
+    .map-control-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
+    /* 移除hover效果，使用active效果 */
+    .touch-control-btn:hover,
+    .time-control-btn:hover,
+    .map-control-btn:hover {
+        transform: none;
+        background: rgba(0, 0, 0, 0.7);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    /* 增强触摸反馈 */
+    .touch-control-btn:active,
+    .time-control-btn:active,
+    .map-control-btn:active {
+        transform: scale(0.9);
+        background: rgba(255, 255, 255, 0.2);
+    }
+}
+
+/* 横屏优化 */
+@media (max-width: 768px) and (orientation: landscape) {
+    .orbital-map-container {
+        height: 70vh;
+    }
+    
+    .touch-control-buttons {
+        flex-direction: row;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .touch-time-controls {
+        flex-direction: row;
+        top: 10px;
+        left: 10px;
+    }
 }

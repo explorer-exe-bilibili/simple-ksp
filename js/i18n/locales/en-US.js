@@ -186,16 +186,10 @@ export default {
         flightData: {
             title: 'Flight Data',
             altitude: 'Altitude',
-            velocity: 'Vertical Velocity',
-            horizontalVelocity: 'Horizontal Velocity',
-            horizontalPosition: 'Horizontal Position',
-            acceleration: 'Acceleration',
+            totalVelocity: 'Total Velocity',
             mass: 'Mass',
             fuel: 'Liquid Fuel',
-            oxidizer: 'Oxidizer',
-            throttle: 'Throttle',
-            deltaV: 'Remaining Delta-V',
-            stage: 'Stage'
+            throttle: 'Throttle'
         },
         controlsHint: {
             title: 'Controls',
@@ -213,7 +207,10 @@ export default {
             throttleUp: 'Throttle Up',
             throttleDown: 'Throttle Down',
             sas: 'SAS',
-            rcs: 'RCS'
+            rcs: 'RCS',
+            turnLeft: 'Turn Left',
+            turnRight: 'Turn Right',
+            timeAcceleration: 'Time Acceleration'
         },
         throttle: {
             title: 'Throttle Control',
@@ -288,9 +285,10 @@ export default {
         // Orbital information
         orbital: {
             title: 'Orbital Info',
+            gravitySouce: 'Gravity Source',
             status: 'Orbit Status',
-            velocity: 'Orbital Velocity',
-            circularVelocity: 'Circular Velocity',
+            periapsis: 'Periapsis',
+            apoapsis: 'Apoapsis',
             orbitType: 'Orbit Type',
             eccentricity: 'Eccentricity',
             statusTypes: {

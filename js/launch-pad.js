@@ -41,7 +41,7 @@ class LaunchPad {
         
         // 时间加速
         this.timeAcceleration = 1;
-        this.allowedTimeAccelerations = [1, 5, 10, 50, 100, 1000];
+        this.allowedTimeAccelerations = [1, 5, 10, 50, 100, 1000, 10000, 100000];
         
         this.initializeUI();
         this.loadRocketData();
@@ -103,10 +103,8 @@ class LaunchPad {
         // 初始化键盘控制
         this.initializeKeyboardControls();
         
-        // 初始化触屏控制
-        if (this.touchSupport) {
-            this.initializeTouchControls();
-        }
+        // 初始化触屏控制（在所有设备上都启用，方便测试）
+        this.initializeTouchControls();
     }
 
     // 从localStorage加载火箭数据
@@ -698,8 +696,13 @@ class LaunchPad {
         
         // 更新实时数据
         document.getElementById('altitude').textContent = `${this.simulation.altitude.toFixed(1)} m`;
-        document.getElementById('velocity').textContent = `${this.simulation.velocity.toFixed(1)} m/s`;
-        document.getElementById('acceleration').textContent = `${this.simulation.acceleration.toFixed(2)} m/s²`;
+        
+        // 计算总速度（矢量和）
+        const radialVel = this.simulation.radialVelocity || 0;
+        const tangentialVel = this.simulation.radialDistance * (this.simulation.angularVelocity || 0);
+        const totalVelocity = Math.sqrt(radialVel * radialVel + tangentialVel * tangentialVel);
+        document.getElementById('totalVelocity').textContent = `${totalVelocity.toFixed(1)} m/s`;
+        
         document.getElementById('mass').textContent = `${this.simulation.mass.toFixed(2)} t`;
         
         // 计算当前推重比
@@ -707,13 +710,15 @@ class LaunchPad {
         const twr = this.simulation.mass > 0 ? (totalThrust / (this.simulation.mass * 9.81)) : 0;
         document.getElementById('twr').textContent = twr.toFixed(2);
         
-        // 计算剩余Delta-V（简化计算）
-        const stagingInfo = this.assembly.getStagingInfo();
-        const remainingDeltaV = stagingInfo.slice(this.simulation.currentStage).reduce((sum, stage) => sum + stage.deltaV, 0);
-        document.getElementById('deltaV').textContent = `${remainingDeltaV.toFixed(0)} m/s`;
-        
         // 更新当前级燃料显示
         this.updateCurrentStageFuel();
+        
+        // 更新轨道信息
+        this.updateOrbitalInfo();
+        
+        // 更新引力源信息
+        this.updateGravitySourceInfo();
+        
         // 更新导航条指针位置（以当前朝向为中心）
         this.updateNavigationPointer();
     }
@@ -846,6 +851,40 @@ class LaunchPad {
             return angle;
         }
     }
+    
+    // 更新引力源信息显示
+    updateGravitySourceInfo() {
+        if (!this.simulation) return;
+        
+        const gravitySourceElement = document.getElementById('gravitySource');
+        if (!gravitySourceElement) return;
+        
+        const currentSource = this.simulation.currentGravitySource;
+        let displayText = '';
+        
+        if (currentSource === 'earth') {
+            displayText = '🌍 地球';
+        } else if (currentSource === 'moon') {
+            displayText = '🌙 月球';
+        } else {
+            displayText = '❓ 未知';
+        }
+        
+        // 获取详细信息
+        if (this.simulation.getCurrentGravityBodyInfo) {
+            const bodyInfo = this.simulation.getCurrentGravityBodyInfo();
+            const distance = bodyInfo.distance / 1000; // 转换为km
+            
+            if (distance < 1000) {
+                displayText += ` (${distance.toFixed(1)} km)`;
+            } else {
+                displayText += ` (${(distance / 1000).toFixed(2)} Mm)`;
+            }
+        }
+        
+        gravitySourceElement.textContent = displayText;
+    }
+    
     // 更新当前级燃料显示
     updateCurrentStageFuel() {
         if (!this.simulation) return;
@@ -855,21 +894,99 @@ class LaunchPad {
         );
         
         let totalLiquidFuel = 0;
-        let totalOxidizer = 0;
         
         currentStageParts.forEach(part => {
             if (part.fuelStatus) {
                 totalLiquidFuel += part.fuelStatus.liquid_fuel || 0;
-                totalOxidizer += part.fuelStatus.oxidizer || 0;
             }
         });
         
         if (document.getElementById('liquidFuel')) {
             document.getElementById('liquidFuel').textContent = totalLiquidFuel.toFixed(1);
         }
-        if (document.getElementById('oxidizer')) {
-            document.getElementById('oxidizer').textContent = totalOxidizer.toFixed(1);
+    }
+    
+    // 更新轨道信息显示
+    updateOrbitalInfo() {
+        if (!this.simulation || !this.simulation.orbitalData) return;
+        
+        const data = this.simulation.orbitalData;
+        const GM = this.simulation.earthMass * this.simulation.gravitationalConstant;
+        const r = this.simulation.radialDistance;
+        const vr = this.simulation.radialVelocity || 0;
+        const vt = this.simulation.radialDistance * (this.simulation.angularVelocity || 0);
+        
+        // 计算轨道能量和角动量
+        const specificEnergy = (vr * vr + vt * vt) / 2 - GM / r;
+        const angularMomentum = r * vt;
+        
+        // 更新轨道状态
+        let statusKey = 'ascending';
+        if (vr < -10) {
+            statusKey = 'descending';
+        } else if (data.isInOrbit) {
+            statusKey = 'orbit';
         }
+        
+        const statusElement = document.getElementById('orbitStatus');
+        if (statusElement) {
+            statusElement.setAttribute('data-i18n', `launchPad.orbital.statusTypes.${statusKey}`);
+            // 手动更新文本（因为国际化可能不会自动触发）
+            if (window.i18n && window.i18n.t) {
+                statusElement.textContent = window.i18n.t(`launchPad.orbital.statusTypes.${statusKey}`);
+            }
+        }
+        
+        // 计算并显示近地点和远地点高度
+        if (specificEnergy < 0) {
+            // 椭圆轨道
+            const semiMajorAxis = -GM / (2 * specificEnergy);
+            const eccentricity = Math.sqrt(Math.abs(1 + (2 * specificEnergy * angularMomentum * angularMomentum) / (GM * GM)));
+            
+            if (eccentricity < 1) {
+                const periapsis = semiMajorAxis * (1 - eccentricity);
+                const apoapsis = semiMajorAxis * (1 + eccentricity);
+                
+                // 转换为海拔高度（减去地球半径）
+                const periapsisAltitude = Math.max(0, periapsis - this.simulation.earthRadius);
+                const apoapsisAltitude = Math.max(0, apoapsis - this.simulation.earthRadius);
+                
+                document.getElementById('periapsisAltitude').textContent = `${(periapsisAltitude / 1000).toFixed(1)} km`;
+                document.getElementById('apoapsisAltitude').textContent = `${(apoapsisAltitude / 1000).toFixed(1)} km`;
+            } else {
+                // 抛物线或双曲线轨道
+                document.getElementById('periapsisAltitude').textContent = '- km';
+                document.getElementById('apoapsisAltitude').textContent = '∞ km';
+            }
+        } else {
+            // 逃逸轨道
+            document.getElementById('periapsisAltitude').textContent = '- km';
+            document.getElementById('apoapsisAltitude').textContent = '∞ km';
+        }
+        
+        // 更新轨道类型
+        let orbitTypeKey = 'suborbital';
+        if (data.isInOrbit) {
+            if (data.eccentricity < 0.1) {
+                orbitTypeKey = 'circular';
+            } else if (data.eccentricity < 1) {
+                orbitTypeKey = 'elliptical';
+            } else if (data.eccentricity >= 1 && specificEnergy >= 0) {
+                orbitTypeKey = 'hyperbolic';
+            }
+        }
+        
+        const orbitTypeElement = document.getElementById('orbitType');
+        if (orbitTypeElement) {
+            orbitTypeElement.setAttribute('data-i18n', `launchPad.orbital.orbitTypes.${orbitTypeKey}`);
+            // 手动更新文本
+            if (window.i18n && window.i18n.t) {
+                orbitTypeElement.textContent = window.i18n.t(`launchPad.orbital.orbitTypes.${orbitTypeKey}`);
+            }
+        }
+        
+        // 更新离心率
+        document.getElementById('eccentricity').textContent = data.eccentricity.toFixed(3);
     }
 
     // 更新分级信息
@@ -1273,6 +1390,16 @@ class LaunchPad {
                 this.setTimeAcceleration(1000);
                 handled = true;
                 break;
+            case '7':
+                // 7键：×10000 时间加速
+                this.setTimeAcceleration(10000);
+                handled = true;
+                break;
+            case '8':
+                // 8键：×100000 时间加速
+                this.setTimeAcceleration(100000);
+                handled = true;
+                break;
         }
         
         if (handled) {
@@ -1367,12 +1494,12 @@ class LaunchPad {
         mapOverlay.className = 'map-overlay';
         
         mapOverlay.innerHTML = `
-            <div class="map-container">
+            <div class="map-container" id="mapContainer">
                 <div class="map-header">
                     <h3>轨道地图</h3>
                     <button class="map-close-btn" onclick="launchPad.toggleMapView()">×</button>
                 </div>
-                <div class="map-content">
+                <div class="map-content" id="mapContent">
                     <svg id="mapSvg" viewBox="-400 -400 800 800">
                         <!-- 地球 -->
                         <circle cx="0" cy="0" r="100" fill="#4CAF50" stroke="#2E7D32" stroke-width="2"/>
@@ -1380,6 +1507,9 @@ class LaunchPad {
                         
                         <!-- 大气层 -->
                         <circle cx="0" cy="0" r="120" fill="none" stroke="#87CEEB" stroke-width="1" opacity="0.5"/>
+                        
+                        <!-- 月球轨道 -->
+                        <circle cx="0" cy="0" r="380" fill="none" stroke="#FFD700" stroke-width="1" opacity="0.4" stroke-dasharray="10,5"/>
                         
                         <!-- 轨道参考线 -->
                         <circle cx="0" cy="0" r="150" fill="none" stroke="#FFF" stroke-width="1" opacity="0.3" stroke-dasharray="5,5"/>
@@ -1391,6 +1521,10 @@ class LaunchPad {
                         
                         <!-- 火箭轨迹历史（淡蓝色） -->
                         <path id="trajectoryPath" fill="none" stroke="#40E0D0" stroke-width="1.5" opacity="0.6"/>
+                        
+                        <!-- 月球 -->
+                        <circle id="moonMarker" cx="380" cy="0" r="8" fill="#C0C0C0" stroke="#999" stroke-width="1"/>
+                        <text id="moonLabel" x="390" y="5" fill="#FFF" font-size="10">🌙</text>
                         
                         <!-- 火箭位置 -->
                         <circle id="rocketMarker" cx="0" cy="-100" r="4" fill="#FF4444" stroke="#FFF" stroke-width="2"/>
@@ -1406,49 +1540,132 @@ class LaunchPad {
                         </defs>
                     </svg>
                 </div>
+                <div class="map-controls">
+                    <button class="map-control-btn" id="mapResetBtn">🎯</button>
+                    <button class="map-control-btn" id="mapZoomInBtn">🔍+</button>
+                    <button class="map-control-btn" id="mapZoomOutBtn">🔍-</button>
+                </div>
                 <div class="map-info">
                     <div class="map-data">
                         <span>高度: <span id="mapAltitude">0 km</span></span>
                         <span>速度: <span id="mapVelocity">0 m/s</span></span>
                         <span>角度: <span id="mapAngle">0°</span></span>
                     </div>
-                    <div class="map-hint">按 M 键关闭地图 | 鼠标滚轮缩放</div>
+                    <div class="map-hint">按 M 键关闭地图 | 触屏缩放和拖动</div>
                 </div>
             </div>
         `;
         
         document.body.appendChild(mapOverlay);
         
-        // 添加缩放功能
-        this.setupMapZoom();
+        // 初始化地图交互
+        this.initializeMapInteraction();
         
         return mapOverlay;
     }
     
-    // 设置地图缩放功能
-    setupMapZoom() {
+    // 初始化地图交互功能
+    initializeMapInteraction() {
         this.mapZoomLevel = 1.0;
-        this.trajectoryHistory = []; // 轨迹历史记录
+        this.mapPanX = 0;
+        this.mapPanY = 0;
+        this.trajectoryHistory = [];
         
         const mapSvg = document.getElementById('mapSvg');
+        const mapContent = document.getElementById('mapContent');
+        
+        if (!mapSvg || !mapContent) return;
+
+        // 触屏缩放
+        this.setupMapTouchZoom(mapContent, mapSvg);
+        
+        // 鼠标滚轮缩放
+        this.setupMapWheelZoom(mapContent, mapSvg);
+        
+        // 控制按钮
+        this.setupMapControlButtons();
+    }
+    
+    // 设置触屏缩放
+    setupMapTouchZoom(mapContent, mapSvg) {
+        let initialDistance = 0;
+        let initialZoom = 1.0;
+        
+        mapContent.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                initialDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                initialZoom = this.mapZoomLevel;
+                e.preventDefault();
+            }
+        });
+        
+        mapContent.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                
+                const zoomFactor = currentDistance / initialDistance;
+                this.mapZoomLevel = Math.max(0.5, Math.min(5.0, initialZoom * zoomFactor));
+                this.updateMapTransform(mapSvg);
+                e.preventDefault();
+            }
+        });
+    }
+    
+    // 设置鼠标滚轮缩放
+    setupMapWheelZoom(mapContent, mapSvg) {
+        mapContent.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            this.mapZoomLevel = Math.max(0.5, Math.min(5.0, this.mapZoomLevel * zoomFactor));
+            this.updateMapTransform(mapSvg);
+        });
+    }
+    
+    // 设置地图控制按钮
+    setupMapControlButtons() {
+        const resetBtn = document.getElementById('mapResetBtn');
+        const zoomInBtn = document.getElementById('mapZoomInBtn');
+        const zoomOutBtn = document.getElementById('mapZoomOutBtn');
+        
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                this.mapZoomLevel = 1.0;
+                this.updateMapTransform(document.getElementById('mapSvg'));
+            });
+        }
+        
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => {
+                this.mapZoomLevel = Math.min(5.0, this.mapZoomLevel * 1.2);
+                this.updateMapTransform(document.getElementById('mapSvg'));
+            });
+        }
+        
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => {
+                this.mapZoomLevel = Math.max(0.5, this.mapZoomLevel * 0.8);
+                this.updateMapTransform(document.getElementById('mapSvg'));
+            });
+        }
+    }
+    
+    // 更新地图变换
+    // 更新地图变换
+    updateMapTransform(mapSvg) {
         if (!mapSvg) return;
         
-        mapSvg.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            this.mapZoomLevel *= delta;
-            
-            // 限制缩放范围
-            this.mapZoomLevel = Math.max(0.3, Math.min(5.0, this.mapZoomLevel));
-            
-            // 更新视图框
-            const baseSize = 400;
-            const size = baseSize / this.mapZoomLevel;
-            mapSvg.setAttribute('viewBox', `-${size} -${size} ${size * 2} ${size * 2}`);
-            
-            console.log(`地图缩放: ${(this.mapZoomLevel * 100).toFixed(0)}%`);
-        });
+        const transform = `scale(${this.mapZoomLevel})`;
+        mapSvg.style.transform = transform;
     }
     
     // 更新地图视图
@@ -1457,6 +1674,8 @@ class LaunchPad {
         
         const rocketMarker = document.getElementById('rocketMarker');
         const rocketLabel = document.getElementById('rocketLabel');
+        const moonMarker = document.getElementById('moonMarker');
+        const moonLabel = document.getElementById('moonLabel');
         const mapAltitude = document.getElementById('mapAltitude');
         const mapVelocity = document.getElementById('mapVelocity');
         const mapAngle = document.getElementById('mapAngle');
@@ -1468,6 +1687,20 @@ class LaunchPad {
         // 计算火箭在地图上的位置
         const earthRadius = 100; // 地图上地球的半径（像素）
         const scale = earthRadius / (this.simulation.earthRadius / 1000); // km per pixel
+        
+        // 更新月球位置
+        if (moonMarker && moonLabel && this.simulation.celestialBodies) {
+            const moon = this.simulation.celestialBodies.moon;
+            const moonMapRadius = 380; // 地图上月球轨道半径（像素）
+            
+            const moonMapX = moonMapRadius * Math.cos(moon.currentAngle);
+            const moonMapY = moonMapRadius * Math.sin(moon.currentAngle);
+            
+            moonMarker.setAttribute('cx', moonMapX);
+            moonMarker.setAttribute('cy', moonMapY);
+            moonLabel.setAttribute('x', moonMapX + 10);
+            moonLabel.setAttribute('y', moonMapY + 5);
+        }
         
         // 火箭距离地心的距离（地图像素）
         const rocketRadius = earthRadius + (this.simulation.altitude / 1000) * scale;
@@ -1538,15 +1771,6 @@ class LaunchPad {
             return;
         }
         
-        const data = this.simulation.orbitalData;
-        
-        // 只有在轨道状态下才显示预测路径
-        if (!data.isInOrbit && this.simulation.altitude < 100000) {
-            // 低空时绘制抛物线轨迹
-            this.drawTrajectoryPrediction(pathElement, earthRadius, scale, currentX, currentY);
-            return;
-        }
-        
         // 计算轨道参数
         const r = this.simulation.radialDistance;
         const vr = this.simulation.radialVelocity;
@@ -1557,87 +1781,154 @@ class LaunchPad {
         const specificEnergy = (vr * vr + vt * vt) / 2 - GM / r;
         const angularMomentum = r * vt;
         
-        // 计算半长轴
+        // 计算半长轴和离心率
         const semiMajorAxis = -GM / (2 * specificEnergy);
+        const eccentricity = Math.sqrt(Math.abs(1 + (2 * specificEnergy * angularMomentum * angularMomentum) / (GM * GM)));
         
-        // 计算离心率
-        const eccentricity = Math.sqrt(1 + (2 * specificEnergy * angularMomentum * angularMomentum) / (GM * GM));
+        // 速度阈值，判断是否显示轨道预测
+        const totalVelocity = Math.sqrt(vr * vr + vt * vt);
+        const escapeVelocity = Math.sqrt(2 * GM / r);
+        const circularVelocity = Math.sqrt(GM / r);
         
-        // 限制离心率防止极端情况
-        const e = Math.min(eccentricity, 0.98);
+        // 高度阈值：只有在一定高度以上才显示轨道预测
+        const altitude = this.simulation.altitude;
+        const minAltitudeForOrbitPrediction = 50000; // 50km以上显示轨道预测
         
-        if (semiMajorAxis > 0 && e < 1) {
-            // 椭圆轨道
-            this.drawEllipticalOrbit(pathElement, semiMajorAxis, e, earthRadius, scale);
+        if (altitude < minAltitudeForOrbitPrediction && totalVelocity < circularVelocity * 0.7) {
+            // 低空低速时绘制抛物线轨迹
+            this.drawTrajectoryPrediction(pathElement, earthRadius, scale, currentX, currentY);
+            return;
+        }
+        
+        // 判断轨道类型
+        if (specificEnergy < 0 && eccentricity < 1) {
+            // 椭圆轨道（包括圆轨道）
+            this.drawEllipticalOrbit(pathElement, semiMajorAxis, eccentricity, earthRadius, scale);
+        } else if (totalVelocity < escapeVelocity * 1.2) {
+            // 抛物线轨道或低速双曲线轨道
+            this.drawParabolicTrajectory(pathElement, earthRadius, scale, currentX, currentY);
         } else {
-            // 双曲线轨道或抛物线轨道
+            // 高速双曲线轨道（逃逸轨道）
             this.drawHyperbolicTrajectory(pathElement, earthRadius, scale, currentX, currentY);
         }
     }
     
-    // 绘制椭圆轨道
+    // 绘制椭圆轨道 - 使用解析方法而非数值积分
     drawEllipticalOrbit(pathElement, semiMajorAxis, eccentricity, earthRadius, scale) {
-        // 使用当前位置和速度，通过物理积分绘制真实轨道
         const GM = this.simulation.earthMass * this.simulation.gravitationalConstant;
         
         // 当前状态
-        let r = this.simulation.radialDistance;
-        let theta = this.simulation.angularPosition;
-        let vr = this.simulation.radialVelocity;
-        let vtheta = this.simulation.radialDistance * this.simulation.angularVelocity;
+        const r = this.simulation.radialDistance;
+        const vr = this.simulation.radialVelocity;
+        const vt = this.simulation.radialDistance * this.simulation.angularVelocity;
+        const currentAngle = this.simulation.angularPosition;
         
-        // 保存初始状态
-        const initialTheta = theta;
+        // 计算轨道参数
+        const h = r * vt; // 角动量（保守量）
+        const energy = (vr * vr + vt * vt) / 2 - GM / r; // 比能量（保守量）
         
+        // 重新计算精确的轨道参数
+        const a = -GM / (2 * energy); // 半长轴
+        const e = Math.sqrt(Math.abs(1 + (2 * energy * h * h) / (GM * GM))); // 离心率
+        
+        // 限制离心率防止极端情况
+        const eccentricity_safe = Math.min(e, 0.99);
+        
+        if (a <= 0 || eccentricity_safe >= 1) {
+            // 不是椭圆轨道，绘制双曲线轨迹
+            this.drawHyperbolicTrajectory(pathElement, earthRadius, scale, 
+                (r / 1000 * scale) * Math.sin(currentAngle), 
+                -(r / 1000 * scale) * Math.cos(currentAngle));
+            return;
+        }
+        
+        // 计算真近点角（火箭当前在轨道上的位置）
+        const currentR = r;
+        const p = a * (1 - eccentricity_safe * eccentricity_safe); // 半通径
+        const cosNu = (p / currentR - 1) / eccentricity_safe;
+        let nu = Math.acos(Math.max(-1, Math.min(1, cosNu))); // 限制在有效范围内
+        
+        // 根据径向速度确定是在近地点前还是后
+        if (vr < 0) {
+            nu = 2 * Math.PI - nu;
+        }
+        
+        // 计算近地点参数（轨道在空间中的方向）
+        const periapsisAngle = currentAngle - nu;
+        
+        // 绘制完整的椭圆轨道
         let pathD = '';
-        const maxSteps = 200;
-        const dt = 50; // 50秒步长
+        const numPoints = 120; // 增加点数以获得更光滑的椭圆
         
-        for (let i = 0; i <= maxSteps; i++) {
+        for (let i = 0; i <= numPoints; i++) {
+            const trueAnomaly = (2 * Math.PI * i) / numPoints;
+            
+            // 椭圆轨道方程：r = a(1-e²)/(1+e*cos(ν))
+            const orbitRadius = (a * (1 - eccentricity_safe * eccentricity_safe)) / 
+                               (1 + eccentricity_safe * Math.cos(trueAnomaly));
+            
+            // 计算在地球坐标系中的角度
+            const absoluteAngle = periapsisAngle + trueAnomaly;
+            
             // 转换到地图坐标
-            const mapR = r / 1000 * scale;
-            const x = mapR * Math.sin(theta);
-            const y = -mapR * Math.cos(theta);
+            const mapR = orbitRadius / 1000 * scale;
+            const x = mapR * Math.sin(absoluteAngle);
+            const y = -mapR * Math.cos(absoluteAngle);
             
             if (i === 0) {
                 pathD += `M ${x} ${y}`;
             } else {
                 pathD += ` L ${x} ${y}`;
             }
-            
-            // 检查是否完成一圈轨道
-            if (i > 20 && Math.abs(theta - initialTheta - 2 * Math.PI) < 0.5) {
-                // 轨道闭合，连接到起点
-                const mapR0 = this.simulation.radialDistance / 1000 * scale;
-                const x0 = mapR0 * Math.sin(initialTheta);
-                const y0 = -mapR0 * Math.cos(initialTheta);
-                pathD += ` L ${x0} ${y0}`;
-                break;
-            }
-            
-            // 物理积分
-            if (i < maxSteps) {
-                // 计算重力加速度
-                const gravity = GM / (r * r);
-                const ar = vtheta * vtheta / r - gravity; // 径向加速度（包含离心力）
-                const atheta = -2 * vr * vtheta / r; // 切向加速度（科里奥利效应）
-                
-                // 更新速度
-                vr += ar * dt;
-                vtheta += atheta * dt;
-                
-                // 更新位置
-                r += vr * dt;
-                theta += vtheta / r * dt;
-                
-                // 防止撞击地面或飞得太远
-                if (r <= this.simulation.earthRadius * 1.01 || r > this.simulation.earthRadius * 20) {
-                    break;
-                }
-            }
         }
         
+        // 闭合轨道
+        pathD += ' Z';
+        
         pathElement.setAttribute('d', pathD);
+        
+        // 添加轨道关键点标记
+        this.drawOrbitMarkers(periapsisAngle, a, eccentricity_safe, scale);
+    }
+    
+    // 绘制轨道关键点（近地点、远地点）
+    drawOrbitMarkers(periapsisAngle, semiMajorAxis, eccentricity, scale) {
+        const mapSvg = document.getElementById('mapSvg');
+        if (!mapSvg) return;
+        
+        // 移除旧的标记
+        const oldMarkers = mapSvg.querySelectorAll('.orbit-marker');
+        oldMarkers.forEach(marker => marker.remove());
+        
+        // 近地点（ν = 0）
+        const periapsis = semiMajorAxis * (1 - eccentricity);
+        const periX = (periapsis / 1000 * scale) * Math.sin(periapsisAngle);
+        const periY = -(periapsis / 1000 * scale) * Math.cos(periapsisAngle);
+        
+        // 远地点（ν = π）
+        const apoapsis = semiMajorAxis * (1 + eccentricity);
+        const apoX = (apoapsis / 1000 * scale) * Math.sin(periapsisAngle + Math.PI);
+        const apoY = -(apoapsis / 1000 * scale) * Math.cos(periapsisAngle + Math.PI);
+        
+        // 创建近地点标记
+        const periMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        periMarker.setAttribute('cx', periX);
+        periMarker.setAttribute('cy', periY);
+        periMarker.setAttribute('r', '3');
+        periMarker.setAttribute('fill', '#FF6B6B');
+        periMarker.setAttribute('class', 'orbit-marker');
+        periMarker.innerHTML = `<title>近地点: ${(periapsis / 1000).toFixed(1)} km</title>`;
+        mapSvg.appendChild(periMarker);
+        
+        // 创建远地点标记
+        const apoMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        apoMarker.setAttribute('cx', apoX);
+        apoMarker.setAttribute('cy', apoY);
+        apoMarker.setAttribute('r', '3');
+        apoMarker.setAttribute('fill', '#4ECDC4');
+        apoMarker.setAttribute('class', 'orbit-marker');
+        apoMarker.innerHTML = `<title>远地点: ${(apoapsis / 1000).toFixed(1)} km</title>`;
+        mapSvg.appendChild(apoMarker);
     }
     
     // 绘制圆形轨道
@@ -1647,6 +1938,50 @@ class LaunchPad {
         pathElement.setAttribute('d', pathD);
     }
     
+    // 绘制抛物线轨迹（接近逃逸速度）
+    drawParabolicTrajectory(pathElement, earthRadius, scale, currentX, currentY) {
+        let pathD = `M ${currentX} ${currentY}`;
+        
+        const GM = this.simulation.earthMass * this.simulation.gravitationalConstant;
+        const r = this.simulation.radialDistance;
+        const vr = this.simulation.radialVelocity;
+        const vt = this.simulation.radialDistance * this.simulation.angularVelocity;
+        const currentAngle = this.simulation.angularPosition;
+        
+        // 角动量保守
+        const h = r * vt;
+        
+        // 使用解析解绘制抛物线轨道
+        const numPoints = 60;
+        const maxAngleChange = Math.PI; // 最多绘制180度
+        
+        for (let i = 1; i <= numPoints; i++) {
+            const progress = i / numPoints;
+            const deltaAngle = maxAngleChange * progress;
+            
+            // 抛物线轨道方程 (e = 1): r = 2p / (1 + cos(ν))
+            // 其中 p = h²/GM 是半通径
+            const p = (h * h) / GM;
+            const trueAnomaly = deltaAngle;
+            const orbitRadius = (2 * p) / (1 + Math.cos(trueAnomaly));
+            
+            // 计算新的角度位置
+            const newAngle = currentAngle + (h / orbitRadius) * deltaAngle * 100; // 简化的角度计算
+            
+            // 转换到地图坐标
+            const mapR = orbitRadius / 1000 * scale;
+            const x = mapR * Math.sin(newAngle);
+            const y = -mapR * Math.cos(newAngle);
+            
+            pathD += ` L ${x} ${y}`;
+            
+            // 如果脱离显示范围则停止
+            if (Math.abs(x) > 800 || Math.abs(y) > 800 || orbitRadius > this.simulation.earthRadius * 10) break;
+        }
+        
+        pathElement.setAttribute('d', pathD);
+    }
+
     // 绘制双曲线轨迹
     drawHyperbolicTrajectory(pathElement, earthRadius, scale, currentX, currentY) {
         let pathD = `M ${currentX} ${currentY}`;
@@ -1681,31 +2016,44 @@ class LaunchPad {
     drawTrajectoryPrediction(pathElement, earthRadius, scale, currentX, currentY) {
         let pathD = `M ${currentX} ${currentY}`;
         
-        // 基于当前速度和重力的抛物线预测
+        // 基于当前速度和重力的抛物线预测，考虑地球自转
         const vr = this.simulation.radialVelocity;
         const vt = this.simulation.radialDistance * this.simulation.angularVelocity;
         const r = this.simulation.radialDistance;
+        const angle = this.simulation.angularPosition;
         
-        const dt = 5; // 时间步长
-        let angle = this.simulation.angularPosition;
-        let radius = r;
+        const GM = this.simulation.earthMass * this.simulation.gravitationalConstant;
+        const h = r * vt; // 角动量
+        
+        const dt = 5; // 时间步长（秒）
+        let currentRadius = r;
+        let currentAngle = angle;
         let radialVel = vr;
         
-        for (let i = 1; i <= 50; i++) {
-            // 计算重力加速度
-            const GM = this.simulation.earthMass * this.simulation.gravitationalConstant;
-            const gravity = GM / (radius * radius);
+        for (let i = 1; i <= 80; i++) {
+            // 使用保守的角动量来计算切向速度
+            const tangentialVel = h / currentRadius;
             
-            // 更新位置和速度
-            radialVel -= gravity * dt;
-            radius += radialVel * dt;
-            angle += (vt / radius) * dt;
+            // 计算重力加速度（考虑离心力）
+            const gravity = GM / (currentRadius * currentRadius);
+            const centrifugalForce = (tangentialVel * tangentialVel) / currentRadius;
+            
+            // 更新径向速度和位置
+            radialVel += (centrifugalForce - gravity) * dt;
+            currentRadius += radialVel * dt;
+            currentAngle += (tangentialVel / currentRadius) * dt;
             
             // 检查是否撞击地面
-            if (radius <= this.simulation.earthRadius) break;
+            if (currentRadius <= this.simulation.earthRadius) {
+                // 计算撞击点
+                const impactX = (this.simulation.earthRadius / 1000 * scale) * Math.sin(currentAngle);
+                const impactY = -(this.simulation.earthRadius / 1000 * scale) * Math.cos(currentAngle);
+                pathD += ` L ${impactX} ${impactY}`;
+                break;
+            }
             
-            const predX = (radius / 1000 * scale) * Math.sin(angle);
-            const predY = -(radius / 1000 * scale) * Math.cos(angle);
+            const predX = (currentRadius / 1000 * scale) * Math.sin(currentAngle);
+            const predY = -(currentRadius / 1000 * scale) * Math.cos(currentAngle);
             
             pathD += ` L ${predX} ${predY}`;
             
@@ -1726,7 +2074,7 @@ class LaunchPad {
                 this.simulation.setTimeAcceleration(multiplier);
             }
             
-            // 更新显示
+            // 更新显示 (仅桌面端)
             const timeAccelValue = document.getElementById('timeAccelValue');
             if (timeAccelValue) {
                 timeAccelValue.textContent = `×${multiplier}`;
@@ -1741,6 +2089,22 @@ class LaunchPad {
                 } else {
                     timeAccelValue.style.color = '#F44336'; // 红色 - 高速加速
                 }
+            }
+            
+            // 更新手机端按钮激活状态
+            const timeButtons = ['timeAccel1x', 'timeAccel5x', 'timeAccel10x', 'timeAccel50x', 'timeAccel100x'];
+            timeButtons.forEach(buttonId => {
+                const button = document.getElementById(buttonId);
+                if (button) {
+                    button.classList.remove('active');
+                }
+            });
+            
+            // 激活当前选中的按钮
+            const activeButtonId = `timeAccel${multiplier}x`;
+            const activeButton = document.getElementById(activeButtonId);
+            if (activeButton) {
+                activeButton.classList.add('active');
             }
             
             console.log(`时间加速设置为 ×${multiplier}`);
@@ -1877,17 +2241,99 @@ class LaunchPad {
         return 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
     }
     
+    // 为元素添加兼容的点击事件处理
+    addClickHandler(element, handler) {
+        if (!element) return;
+        
+        let touchStartTime = 0;
+        let touched = false;
+        let startX = 0;
+        let startY = 0;
+        const moveThreshold = 10; // 移动超过10px就不算点击
+        
+        // 鼠标点击事件
+        element.addEventListener('click', (e) => {
+            if (!touched) {
+                handler(e);
+            }
+        });
+        
+        // 触屏事件
+        element.addEventListener('touchstart', (e) => {
+            touchStartTime = Date.now();
+            touched = true;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            element.style.transform = 'scale(0.95)';
+        }, { passive: false });
+        
+        element.addEventListener('touchmove', (e) => {
+            if (touched) {
+                const deltaX = e.touches[0].clientX - startX;
+                const deltaY = e.touches[0].clientY - startY;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                
+                // 如果移动距离超过阈值，取消点击
+                if (distance > moveThreshold) {
+                    touched = false;
+                    element.style.transform = 'scale(1)';
+                }
+            }
+        }, { passive: false });
+        
+        element.addEventListener('touchend', (e) => {
+            const touchDuration = Date.now() - touchStartTime;
+            element.style.transform = 'scale(1)';
+            
+            // 只有在快速点击且没有移动太远时才触发
+            if (touched && touchDuration < 500) {
+                e.preventDefault();
+                e.stopPropagation();
+                handler(e);
+            }
+            
+            // 延迟重置touched标志，防止同时触发click事件
+            setTimeout(() => {
+                touched = false;
+            }, 300);
+        }, { passive: false });
+        
+        element.addEventListener('touchcancel', () => {
+            element.style.transform = 'scale(1)';
+            touched = false;
+        }, { passive: false });
+    }
+    
     // 初始化触屏控制
     initializeTouchControls() {
+        // 检测触摸能力
+        const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+        console.log('触摸支持检测:', {
+            ontouchstart: 'ontouchstart' in window,
+            maxTouchPoints: navigator.maxTouchPoints,
+            msMaxTouchPoints: navigator.msMaxTouchPoints,
+            userAgent: navigator.userAgent,
+            hasTouchSupport: hasTouchSupport
+        });
+        
         const touchPanel = document.getElementById('touchControlPanel');
         const touchControlButtons = document.getElementById('touchControlButtons');
+        const touchTimeControls = document.getElementById('touchTimeControls');
         
+        // 强制激活所有触屏控制（方便调试）
         if (touchPanel) {
             touchPanel.classList.add('active');
+            console.log('触屏控制面板已激活');
         }
         
         if (touchControlButtons) {
             touchControlButtons.classList.add('active');
+            console.log('触屏控制按钮已激活');
+        }
+        
+        if (touchTimeControls) {
+            touchTimeControls.classList.add('active');
+            console.log('触屏时间控制已激活');
         }
         
         // 初始化转向控制
@@ -1896,87 +2342,128 @@ class LaunchPad {
         // 初始化节流阀控制
         this.initializeTouchThrottle();
         
-        // 初始化主要控制按钮
-        this.initializeTouchMainControls();
-        
         // 初始化右上角按钮组
         this.initializeTouchTopButtons();
+        
+        // 初始化时间加速控制
+        this.initializeTouchTimeControls();
+        
+        console.log('所有触屏控制已初始化完成');
     }
     
-    // 初始化触屏转向控制
+    // 初始化触屏转向控制（按钮版本）
     initializeTouchSteering() {
-        const steeringPad = document.getElementById('touchSteeringPad');
-        const steeringIndicator = document.getElementById('touchSteeringIndicator');
+        const leftBtn = document.getElementById('touchLeftBtn');
+        const rightBtn = document.getElementById('touchRightBtn');
+        const angleDisplay = document.getElementById('touchSteeringAngle');
         
-        if (!steeringPad || !steeringIndicator) return;
+        if (!leftBtn || !rightBtn) {
+            console.error('转向按钮未找到:', { leftBtn, rightBtn });
+            return;
+        }
         
-        let startX = 0, startY = 0;
-        let padRect = null;
+        console.log('初始化触摸转向按钮控制');
         
-        const handleTouchStart = (e) => {
-            e.preventDefault();
-            this.touchSteeringActive = true;
-            padRect = steeringPad.getBoundingClientRect();
-            const touch = e.touches[0];
-            startX = touch.clientX;
-            startY = touch.clientY;
-        };
+        let leftPressed = false;
+        let rightPressed = false;
+        let steeringInterval = null;
         
-        const handleTouchMove = (e) => {
-            if (!this.touchSteeringActive || !padRect) return;
-            e.preventDefault();
+        const updateSteering = () => {
+            if (!this.simulation || !this.simulation.isRunning) return;
             
-            const touch = e.touches[0];
-            const centerX = padRect.left + padRect.width / 2;
-            const centerY = padRect.top + padRect.height / 2;
+            const steeringSpeed = 0.8; // 转向速度（度/帧）
             
-            const deltaX = touch.clientX - centerX;
-            const deltaY = touch.clientY - centerY;
-            
-            const maxRadius = padRect.width / 2 - 15;
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            
-            let finalX = deltaX;
-            let finalY = deltaY;
-            
-            if (distance > maxRadius) {
-                finalX = (deltaX / distance) * maxRadius;
-                finalY = (deltaY / distance) * maxRadius;
+            if (leftPressed && !rightPressed) {
+                // 左转
+                this.simulation.adjustSteering(-steeringSpeed);
+                console.log('左转，当前角度:', this.simulation.steeringAngle);
+            } else if (rightPressed && !leftPressed) {
+                // 右转
+                this.simulation.adjustSteering(steeringSpeed);
+                console.log('右转，当前角度:', this.simulation.steeringAngle);
             }
-            
-            // 计算转向角度（只考虑水平方向）
-            const angle = Math.max(-45, Math.min(45, (finalX / maxRadius) * 45));
-            
-            // 更新指示器位置
-            steeringIndicator.style.transform = `translate(-50%, -50%) translate(${finalX}px, ${finalY}px)`;
             
             // 更新角度显示
-            document.getElementById('touchSteeringAngle').textContent = `${Math.round(angle)}°`;
-            
-            // 应用转向
-            if (this.simulation && this.simulation.isRunning) {
-                this.simulation.setSteering(angle);
+            if (angleDisplay) {
+                const currentAngle = this.simulation.steeringAngle || 0;
+                angleDisplay.textContent = `${Math.round(currentAngle)}°`;
             }
         };
         
-        const handleTouchEnd = (e) => {
+        const startSteering = () => {
+            if (!steeringInterval) {
+                steeringInterval = setInterval(updateSteering, 16); // 约60fps
+            }
+        };
+        
+        const stopSteering = () => {
+            if (steeringInterval) {
+                clearInterval(steeringInterval);
+                steeringInterval = null;
+            }
+        };
+        
+        // 左转按钮事件
+        const handleLeftStart = (e) => {
             e.preventDefault();
-            this.touchSteeringActive = false;
-            
-            // 回弹到中心
-            steeringIndicator.style.transform = 'translate(-50%, -50%)';
-            document.getElementById('touchSteeringAngle').textContent = '0°';
-            
-            // 重置转向
-            if (this.simulation && this.simulation.isRunning) {
-                this.simulation.setSteering(0);
+            e.stopPropagation();
+            console.log('左转按钮按下');
+            leftPressed = true;
+            leftBtn.classList.add('active');
+            startSteering();
+        };
+        
+        const handleLeftEnd = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('左转按钮释放');
+            leftPressed = false;
+            leftBtn.classList.remove('active');
+            if (!rightPressed) {
+                stopSteering();
             }
         };
         
-        steeringPad.addEventListener('touchstart', handleTouchStart, { passive: false });
-        steeringPad.addEventListener('touchmove', handleTouchMove, { passive: false });
-        steeringPad.addEventListener('touchend', handleTouchEnd, { passive: false });
-        steeringPad.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+        // 右转按钮事件
+        const handleRightStart = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('右转按钮按下');
+            rightPressed = true;
+            rightBtn.classList.add('active');
+            startSteering();
+        };
+        
+        const handleRightEnd = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('右转按钮释放');
+            rightPressed = false;
+            rightBtn.classList.remove('active');
+            if (!leftPressed) {
+                stopSteering();
+            }
+        };
+        
+        // 绑定触摸事件
+        leftBtn.addEventListener('touchstart', handleLeftStart, { passive: false });
+        leftBtn.addEventListener('touchend', handleLeftEnd, { passive: false });
+        leftBtn.addEventListener('touchcancel', handleLeftEnd, { passive: false });
+        
+        rightBtn.addEventListener('touchstart', handleRightStart, { passive: false });
+        rightBtn.addEventListener('touchend', handleRightEnd, { passive: false });
+        rightBtn.addEventListener('touchcancel', handleRightEnd, { passive: false });
+        
+        // 绑定鼠标事件（用于桌面测试）
+        leftBtn.addEventListener('mousedown', handleLeftStart);
+        leftBtn.addEventListener('mouseup', handleLeftEnd);
+        leftBtn.addEventListener('mouseleave', handleLeftEnd);
+        
+        rightBtn.addEventListener('mousedown', handleRightStart);
+        rightBtn.addEventListener('mouseup', handleRightEnd);
+        rightBtn.addEventListener('mouseleave', handleRightEnd);
+        
+        console.log('转向按钮控制已初始化');
     }
     
     // 初始化触屏节流阀控制
@@ -2036,80 +2523,66 @@ class LaunchPad {
         }
     }
     
-    // 初始化触屏主要控制按钮
-    initializeTouchMainControls() {
-        const launchBtn = document.getElementById('touchLaunchBtn');
-        const stageBtn = document.getElementById('touchStageBtn');
-        const abortBtn = document.getElementById('touchAbortBtn');
-        
-        if (launchBtn) {
-            launchBtn.addEventListener('click', () => {
-                startLaunch();
-            });
-        }
-        
-        if (stageBtn) {
-            stageBtn.addEventListener('click', () => {
-                activateNextStage();
-            });
-        }
-        
-        if (abortBtn) {
-            abortBtn.addEventListener('click', () => {
-                abortLaunch();
-            });
-        }
-    }
-    
     // 初始化右上角按钮组
     initializeTouchTopButtons() {
         const launchBtn = document.getElementById('touchLaunchBtn');
         const stageBtn = document.getElementById('touchStageBtn');
-        const abortBtn = document.getElementById('touchAbortBtn');
+        const mapBtn = document.getElementById('touchMapBtn');
         
-        // 由于HTML结构改变，这些按钮现在在右上角按钮组中
-        // 事件监听器逻辑保持不变，因为ID相同
-        if (launchBtn) {
-            launchBtn.addEventListener('click', () => {
-                startLaunch();
-            });
-            launchBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                launchBtn.style.transform = 'scale(0.95)';
-            });
-            launchBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                launchBtn.style.transform = 'scale(1)';
-            });
+        // 发射按钮
+        this.addClickHandler(launchBtn, (e) => {
+            console.log('发射按钮被点击');
+            if (this.simulation) {
+                this.simulation.startLaunch();
+            } else {
+                window.startLaunch();
+            }
+        });
+        
+        // 分离按钮
+        this.addClickHandler(stageBtn, (e) => {
+            console.log('分离按钮被点击');
+            if (this.simulation) {
+                this.simulation.activateNextStage();
+            } else {
+                window.activateNextStage();
+            }
+        });
+        
+        // 地图按钮
+        this.addClickHandler(mapBtn, (e) => {
+            console.log('地图按钮被点击');
+            this.toggleMapView();
+        });
+    }
+    
+    // 初始化触屏时间加速控制
+    initializeTouchTimeControls() {
+        const timeAccel1x = document.getElementById('timeAccel1x');
+        const timeAccel5x = document.getElementById('timeAccel5x');
+        const timeAccel10x = document.getElementById('timeAccel10x');
+        const timeAccel50x = document.getElementById('timeAccel50x');
+        const timeAccel100x = document.getElementById('timeAccel100x');
+        const timeAccel1000x = document.getElementById('timeAccel1000x');
+        const timeAccel10000x = document.getElementById('timeAccel10000x');
+        const timeAccel100000x = document.getElementById('timeAccel100000x');
+        
+        // 设置默认激活状态
+        if (timeAccel1x) {
+            timeAccel1x.classList.add('active');
         }
         
-        if (stageBtn) {
-            stageBtn.addEventListener('click', () => {
-                activateNextStage();
-            });
-            stageBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                stageBtn.style.transform = 'scale(0.95)';
-            });
-            stageBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                stageBtn.style.transform = 'scale(1)';
-            });
-        }
+        // 添加点击事件
+        this.addClickHandler(timeAccel1x, () => this.setTimeAcceleration(1));
+        this.addClickHandler(timeAccel5x, () => this.setTimeAcceleration(5));
+        this.addClickHandler(timeAccel10x, () => this.setTimeAcceleration(10));
+        this.addClickHandler(timeAccel50x, () => this.setTimeAcceleration(50));
+        this.addClickHandler(timeAccel100x, () => this.setTimeAcceleration(100));
+        this.addClickHandler(timeAccel1000x, () => this.setTimeAcceleration(1000));
+        this.addClickHandler(timeAccel10000x, () => this.setTimeAcceleration(10000));
+        this.addClickHandler(timeAccel100000x, () => this.setTimeAcceleration(100000));
         
-        if (abortBtn) {
-            abortBtn.addEventListener('click', () => {
-                abortLaunch();
-            });
-            abortBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                abortBtn.style.transform = 'scale(0.95)';
-            });
-            abortBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                abortBtn.style.transform = 'scale(1)';
-            });
-        }
+        console.log('触屏时间加速控制已初始化');
     }
 }
 
